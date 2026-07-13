@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: layout(title='Search', activePath='/ui/search', content=~{::#page-content})}">
+<body>
+<div id="page-content">
+    <h1 class="page-title">Search</h1>
+    <p class="page-subtitle">Search across presets and functions</p>
+
+    <div class="card" style="margin-bottom:24px;">
+        <div class="card-body">
+            <form id="search-form" style="display:flex;gap:10px;align-items:flex-end;">
+                <div class="form-group" style="flex:1;">
+                    <label>Search phrase</label>
+                    <input type="text" id="search-input" placeholder="Search names, prefixes, operation IDs, descriptions…" autofocus>
+                </div>
+                <button type="submit" class="btn btn-primary">Search</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="search-results"></div>
+
+    <script>
+    function esc(s) { return s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; }
+
+    function snippet(text, phrase) {
+        if (!text || !phrase) return '';
+        var lower = text.toLowerCase();
+        var plower = phrase.toLowerCase();
+        var idx = lower.indexOf(plower);
+        if (idx === -1) {
+            if (text.length > 80) return esc(text.substring(0, 80)) + '…';
+            return esc(text);
+        }
+        var start = Math.max(0, idx - 30);
+        var end = Math.min(text.length, idx + phrase.length + 30);
+        var before = esc(text.substring(start, idx));
+        var match = esc(text.substring(idx, idx + phrase.length));
+        var after = esc(text.substring(idx + phrase.length, end));
+        var result = (start > 0 ? '…' : '') + before + '<mark>' + match + '</mark>' + after + (end < text.length ? '…' : '');
+        return result;
+    }
+
+    function typeBadge(type) {
+        var map = {
+            preset: {label: 'Preset', cls: 'pill pill-normal'},
+            'function-builtin': {label: 'Function', cls: 'pill pill-normal'},
+            'function-custom': {label: 'Function', cls: 'pill pill-doing'}
+        };
+        var b = map[type] || {label: type, cls: 'pill'};
+        return '<span class="' + b.cls + '" style="font-size:10px;padding:2px 7px;white-space:nowrap;">' + b.label + '</span>';
+    }
+
+    async function doSearch(phrase) {
+        var container = document.getElementById('search-results');
+        if (!phrase || phrase.trim().length === 0) {
+            container.innerHTML = '';
+            return;
+        }
+        container.innerHTML = '<div class="muted" style="padding:20px;">Searching…</div>';
+
+        var q = phrase.trim().toLowerCase();
+
+        try {
+            var [presetsRes, builtinRes, customRes] = await Promise.all([
+                fetch('/api/tools/basics/presets/all'),
+                fetch('/api/functions/builtin'),
+                fetch('/api/tools/functions').catch(function() { return {ok: false}; })
+            ]);
+
+            var presets = presetsRes.ok ? await presetsRes.json() : [];
+            var builtins = builtinRes.ok ? await builtinRes.json() : [];
+            var customs = customRes.ok ? await customRes.json() : [];
+
+            // Filter presets
+            var matchedPresets = presets.filter(function(p) {
+                return p.name.toLowerCase().indexOf(q) >= 0
+                    || (p.prefixes || []).some(function(px) { return px.toLowerCase().indexOf(q) >= 0; });
+            });
+
+            // Filter built-in functions — search operationId + description
+            var matchedBuiltins = builtins.filter(function(f) {
+                return (f.operationId || '').toLowerCase().indexOf(q) >= 0
+                    || (f.description || '').toLowerCase().indexOf(q) >= 0;
+            });
+
+            // Filter custom functions — search operationId + description + input + output + implementation + targetLanguage
+            var matchedCustoms = customs.filter(function(f) {
+                return (f.operationId || '').toLowerCase().indexOf(q) >= 0
+                    || (f.description || '').toLowerCase().indexOf(q) >= 0
+                    || (f.input || '').toLowerCase().indexOf(q) >= 0
+                    || (f.output || '').toLowerCase().indexOf(q) >= 0
+                    || (f.implementation || '').toLowerCase().indexOf(q) >= 0
+                    || (f.targetLanguage || '').toLowerCase().indexOf(q) >= 0;
+            });
+
+            var total = matchedPresets.length + matchedBuiltins.length + matchedCustoms.length;
+            if (total === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="icon">🔍</div><div>No results for <strong>' + esc(phrase) + '</strong></div></div>';
+                return;
+            }
+
+            var html = '<p class="muted small" style="margin-bottom:16px;">' + total + ' result(s) for <strong>' + esc(phrase) + '</strong></p>';
+
+            // Presets section
+            if (matchedPresets.length > 0) {
+                html += '<h2 class="section-title">Presets (' + matchedPresets.length + ')</h2>';
+                html += '<div class="search-results-list">';
+                matchedPresets.forEach(function(p) {
+                    var matchField = p.name.toLowerCase().indexOf(q) >= 0 ? p.name : (p.prefixes || []).join(', ');
+                    html += '<div class="search-result-row">';
+                    html += '<div class="search-result-header">';
+                    html += typeBadge('preset');
+                    html += '<a href="/ui/presets/' + encodeURIComponent(p.name) + '"><strong>' + esc(p.name) + '</strong></a>';
+                    html += '</div>';
+                    html += '<div class="search-result-snippet">' + snippet(matchField, phrase) + '</div>';
+                    html += '</div>';
+                });
+                html += '</div>';
+            }
+
+            // Built-in functions section
+            if (matchedBuiltins.length > 0) {
+                html += '<h2 class="section-title">Built-in Functions (' + matchedBuiltins.length + ')</h2>';
+                html += '<div class="search-results-list">';
+                matchedBuiltins.forEach(function(f) {
+                    var matchField = null;
+                    if (f.operationId.toLowerCase().indexOf(q) >= 0) matchField = f.operationId;
+                    else if ((f.description || '').toLowerCase().indexOf(q) >= 0) matchField = f.description;
+                    html += '<div class="search-result-row">';
+                    html += '<div class="search-result-header">';
+                    html += typeBadge('function-builtin');
+                    html += '<strong>' + esc(f.operationId) + '</strong>';
+                    html += '</div>';
+                    if (matchField) {
+                        html += '<div class="search-result-snippet">' + snippet(matchField, phrase) + '</div>';
+                    }
+                    html += '</div>';
+                });
+                html += '</div>';
+            }
+
+            // Custom functions section
+            if (matchedCustoms.length > 0) {
+                html += '<h2 class="section-title">Custom Functions (' + matchedCustoms.length + ')</h2>';
+                html += '<div class="search-results-list">';
+                matchedCustoms.forEach(function(f) {
+                    var matchField = null;
+                    var fields = ['operationId', 'description', 'input', 'output', 'implementation', 'targetLanguage'];
+                    for (var i = 0; i < fields.length; i++) {
+                        var val = f[fields[i]];
+                        if (val && val.toLowerCase().indexOf(q) >= 0) {
+                            matchField = val;
+                            break;
+                        }
+                    }
+                    html += '<div class="search-result-row">';
+                    html += '<div class="search-result-header">';
+                    html += typeBadge('function-custom');
+                    html += '<a href="/ui/functions/' + encodeURIComponent(f.id) + '"><strong>' + esc(f.operationId || f.id) + '</strong></a>';
+                    html += '</div>';
+                    if (matchField) {
+                        html += '<div class="search-result-snippet">' + snippet(matchField, phrase) + '</div>';
+                    }
+                    html += '</div>';
+                });
+                html += '</div>';
+            }
+
+            container.innerHTML = html;
+        } catch(e) {
+            container.innerHTML = '<div class="muted">Search failed</div>';
+        }
+    }
+
+    document.getElementById('search-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        doSearch(document.getElementById('search-input').value);
+    });
+
+    var urlParams = new URLSearchParams(window.location.search);
+    var initialQ = urlParams.get('q');
+    if (initialQ) {
+        document.getElementById('search-input').value = initialQ;
+        doSearch(initialQ);
+    }
+    </script>
+
+    <style>
+    .search-results-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        margin-bottom: 24px;
+    }
+    .search-result-row {
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--border);
+        transition: background 0.15s;
+    }
+    .search-result-row:hover { background: var(--panel-2); }
+    .search-result-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 4px;
+    }
+    .search-result-snippet {
+        font-size: 13px;
+        color: var(--muted);
+        line-height: 1.5;
+    }
+    .search-result-snippet mark {
+        background: rgba(251,191,36,0.25);
+        color: var(--warning);
+        padding: 1px 2px;
+        border-radius: 2px;
+    }
+    </style>
+</div>
+</body>
+</html>

@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: layout(title='Create Preset', activePath='/ui/presets', content=~{::#page-content})}">
+<body>
+<div id="page-content">
+    <div class="breadcrumb">
+        <a href="/">Dashboard</a>
+        <span class="sep">/</span>
+        <a href="/ui/presets">Presets</a>
+        <span class="sep">/</span>
+        <strong>New Preset</strong>
+    </div>
+
+    <h1 class="page-title">Create Preset</h1>
+    <p class="page-subtitle">Define a new tool preset with function prefixes</p>
+
+    <div class="card" style="margin-bottom:24px;">
+        <div class="card-body">
+            <form id="create-form" class="stack" style="gap:14px;">
+                <div class="form-group">
+                    <label>Name (max 128 characters)</label>
+                    <input type="text" id="f-name" placeholder="e.g. my-tools" maxlength="128" required>
+                </div>
+                <div class="form-group">
+                    <label>Prefixes (comma-separated, max 4096 characters)</label>
+                    <textarea id="f-prefixes" placeholder="e.g. mytool_, util_, helper_" rows="3" maxlength="4096"></textarea>
+                    <span class="muted small">Each prefix is matched against function operation IDs to include them in this preset.</span>
+                    <button type="button" id="browse-btn" class="btn btn-small" style="margin-top:6px;align-self:flex-start;">Browse Functions</button>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <button type="submit" class="btn btn-primary">Create Preset</button>
+                    <a href="/ui/presets" class="btn">Cancel</a>
+                </div>
+            </form>
+            <div id="create-status" class="status-box" style="margin-top:12px;"></div>
+        </div>
+    </div>
+
+    <!-- Function Picker Modal -->
+    <div id="picker-overlay" class="picker-overlay" style="display:none;">
+        <div class="picker-modal">
+            <div class="picker-header">
+                <h3 style="margin:0;">Browse Functions</h3>
+                <button id="picker-cancel-top" class="edit-icon-btn" title="Close" style="font-size:18px;">&times;</button>
+            </div>
+            <div class="picker-body">
+                <div class="form-group" style="margin-bottom:10px;">
+                    <label>Filter by prefix</label>
+                    <input type="text" id="picker-filter" placeholder="Type to filter operation IDs…" autocomplete="off">
+                </div>
+                <div id="picker-list" class="picker-list">Loading&hellip;</div>
+            </div>
+            <div class="picker-footer">
+                <button id="picker-add-all" class="btn btn-primary" disabled>Add All</button>
+                <button id="picker-add-sel" class="btn btn-primary" disabled>Add Selected</button>
+                <button id="picker-cancel" class="btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function esc(s) { return s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; }
+
+    var allFunctions = [];
+    var selectedOpId = null;
+
+    // ── Load all functions (built-in + custom) for the picker ──
+    async function loadAllFunctions() {
+        try {
+            var [builtinRes, customRes] = await Promise.all([
+                fetch('/api/functions/builtin'),
+                fetch('/api/tools/functions').catch(function() { return {ok: false}; })
+            ]);
+
+            allFunctions = [];
+
+            if (builtinRes.ok) {
+                var builtins = await builtinRes.json();
+                builtins.forEach(function(f) {
+                    allFunctions.push({
+                        operationId: f.operationId,
+                        description: f.description || '',
+                        type: 'builtin'
+                    });
+                });
+            }
+
+            if (customRes.ok) {
+                var customFunctions = await customRes.json();
+                customFunctions.forEach(function(f) {
+                    allFunctions.push({
+                        operationId: f.operationId || f.id,
+                        description: f.input || '',
+                        type: 'custom'
+                    });
+                });
+            }
+
+            allFunctions.sort(function(a, b) {
+                return (a.operationId || '').toLowerCase().localeCompare((b.operationId || '').toLowerCase());
+            });
+        } catch(e) {
+            allFunctions = [];
+        }
+    }
+
+    // ── Parse current prefixes from textarea ──
+    function getCurrentPrefixes() {
+        var raw = document.getElementById('f-prefixes').value.trim();
+        if (!raw) return [];
+        return raw.split(',').map(function(s) { return s.trim(); }).filter(function(s) { return s.length > 0; });
+    }
+
+    // ── Check if an operationId is covered by current prefixes ──
+    function isCovered(opId, prefixes) {
+        for (var i = 0; i < prefixes.length; i++) {
+            var p = prefixes[i];
+            if (p.endsWith('*')) {
+                var prefix = p.substring(0, p.length - 1);
+                if (opId.startsWith(prefix)) return true;
+            } else {
+                if (opId === p) return true;
+            }
+        }
+        return false;
+    }
+
+    // ── Render picker list ──
+    function renderPicker() {
+        var filterText = document.getElementById('picker-filter').value.trim().toLowerCase();
+        var prefixes = getCurrentPrefixes();
+        var container = document.getElementById('picker-list');
+
+        // Filter: only functions whose operationId starts with filter text
+        // and are NOT already covered by current prefixes
+        var visible = allFunctions.filter(function(f) {
+            var opId = (f.operationId || '').toLowerCase();
+            if (filterText && !opId.startsWith(filterText)) return false;
+            if (isCovered(f.operationId, prefixes)) return false;
+            return true;
+        });
+
+        if (visible.length === 0) {
+            container.innerHTML = '<div class="empty-state empty-state-compact"><div class="muted">No matching functions</div></div>';
+        } else {
+            var html = '';
+            visible.forEach(function(f) {
+                var selClass = (selectedOpId === f.operationId) ? ' picker-row-selected' : '';
+                html += '<div class="picker-row' + selClass + '" data-opid="' + esc(f.operationId) + '">';
+                html += '<span class="picker-opid">' + esc(f.operationId) + '</span>';
+                html += '<span class="picker-desc muted small">' + esc(f.description || '') + '</span>';
+                html += '</div>';
+            });
+            container.innerHTML = html;
+
+            // Click handler for rows
+            container.querySelectorAll('.picker-row').forEach(function(row) {
+                row.addEventListener('click', function() {
+                    container.querySelectorAll('.picker-row').forEach(function(r) { r.classList.remove('picker-row-selected'); });
+                    row.classList.add('picker-row-selected');
+                    selectedOpId = row.getAttribute('data-opid');
+                    updatePickerButtons();
+                });
+            });
+        }
+
+        updatePickerButtons();
+    }
+
+    function updatePickerButtons() {
+        var filterText = document.getElementById('picker-filter').value.trim();
+        var addAllBtn = document.getElementById('picker-add-all');
+        var addSelBtn = document.getElementById('picker-add-sel');
+
+        // Add All: enabled only if filter text is non-empty and all visible rows share that prefix
+        var visibleRows = document.querySelectorAll('#picker-list .picker-row');
+        if (filterText.length > 0 && visibleRows.length > 0) {
+            var allMatch = true;
+            visibleRows.forEach(function(row) {
+                var opId = row.getAttribute('data-opid') || '';
+                if (!opId.toLowerCase().startsWith(filterText.toLowerCase())) {
+                    allMatch = false;
+                }
+            });
+            addAllBtn.disabled = !allMatch;
+        } else {
+            addAllBtn.disabled = true;
+        }
+
+        // Add Selected: enabled only if a row is selected
+        addSelBtn.disabled = (selectedOpId === null);
+    }
+
+    // ── Picker open/close ──
+    function openPicker() {
+        document.getElementById('picker-overlay').style.display = 'flex';
+        document.getElementById('picker-filter').value = '';
+        selectedOpId = null;
+        renderPicker();
+        document.getElementById('picker-filter').focus();
+    }
+
+    function closePicker() {
+        document.getElementById('picker-overlay').style.display = 'none';
+        selectedOpId = null;
+    }
+
+    // ── Event wiring ──
+    document.getElementById('browse-btn').addEventListener('click', function() {
+        if (allFunctions.length === 0) {
+            loadAllFunctions().then(openPicker);
+        } else {
+            openPicker();
+        }
+    });
+
+    document.getElementById('picker-cancel').addEventListener('click', closePicker);
+    document.getElementById('picker-cancel-top').addEventListener('click', closePicker);
+    document.getElementById('picker-overlay').addEventListener('click', function(e) {
+        if (e.target === this) closePicker();
+    });
+
+    document.getElementById('picker-filter').addEventListener('input', function() {
+        selectedOpId = null;
+        renderPicker();
+    });
+
+    document.getElementById('picker-add-all').addEventListener('click', function() {
+        var filterText = document.getElementById('picker-filter').value.trim();
+        if (!filterText) return;
+        var ta = document.getElementById('f-prefixes');
+        var current = ta.value.trim();
+        var newEntry = filterText + '*';
+        if (current) {
+            ta.value = current + ', ' + newEntry;
+        } else {
+            ta.value = newEntry;
+        }
+        closePicker();
+    });
+
+    document.getElementById('picker-add-sel').addEventListener('click', function() {
+        if (!selectedOpId) return;
+        var ta = document.getElementById('f-prefixes');
+        var current = ta.value.trim();
+        if (current) {
+            ta.value = current + ', ' + selectedOpId;
+        } else {
+            ta.value = selectedOpId;
+        }
+        closePicker();
+    });
+
+    // ── Create form ──
+    document.getElementById('create-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        var statusEl = document.getElementById('create-status');
+        statusEl.textContent = 'Creating…';
+        try {
+            var body = {
+                name: document.getElementById('f-name').value.trim(),
+                prefixes: document.getElementById('f-prefixes').value.trim()
+            };
+            var res = await fetch('/api/tools/basics/presets/create', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body)
+            });
+            if (res.ok) {
+                var preset = await res.json();
+                statusEl.innerHTML = '<span class="pill pill-done">Created!</span> Redirecting…';
+                setTimeout(function() {
+                    window.location.href = '/ui/presets/' + encodeURIComponent(preset.name);
+                }, 600);
+            } else {
+                var err = await res.json();
+                statusEl.innerHTML = '<span class="pill pill-failed">' + esc(err.error || err.message || 'Error creating preset') + '</span>';
+            }
+        } catch(e) {
+            statusEl.innerHTML = '<span class="pill pill-failed">Request failed</span>';
+        }
+    });
+
+    // Preload functions on page load
+    loadAllFunctions();
+    </script>
+
+    <style>
+    .picker-overlay {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.7);
+        z-index: 1000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    .picker-modal {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        width: 600px;
+        max-width: 90vw;
+        max-height: 80vh;
+        display: flex;
+        flex-direction: column;
+    }
+    .picker-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--border);
+    }
+    .picker-body {
+        padding: 16px 18px;
+        overflow-y: auto;
+        flex: 1;
+        min-height: 0;
+    }
+    .picker-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        padding: 12px 18px;
+        border-top: 1px solid var(--border);
+    }
+    .picker-list {
+        max-height: 350px;
+        overflow-y: auto;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+    }
+    .picker-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--border);
+        cursor: pointer;
+        transition: background 0.1s;
+    }
+    .picker-row:last-child { border-bottom: none; }
+    .picker-row:hover { background: var(--panel-2); }
+    .picker-row-selected { background: #1a3a5c; border-color: #2a5a8a; }
+    .picker-opid {
+        font-family: monospace;
+        font-size: 13px;
+        font-weight: 600;
+        flex-shrink: 0;
+        min-width: 180px;
+    }
+    .picker-desc {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .edit-icon-btn {
+        background: none;
+        border: none;
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 14px;
+        padding: 2px 4px;
+        border-radius: 4px;
+        line-height: 1;
+    }
+    .edit-icon-btn:hover { color: var(--accent); background: var(--panel-2); }
+    .btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        border-color: var(--border);
+        background: var(--panel-2);
+        color: var(--muted);
+    }
+    .btn:disabled:hover { border-color: var(--border); }
+    </style>
+</div>
+</body>
+</html>

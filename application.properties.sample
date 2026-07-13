@@ -1,0 +1,107 @@
+# IP address the HTTP server binds to. 127.0.0.1 = localhost only, 0.0.0.0 = all interfaces.
+# Use 127.0.0.1 on bare metal, 0.0.0.0 in a container.
+#quarkus.http.host=127.0.0.1
+
+# TCP port the HTTP server listens on.
+#quarkus.http.port=8080
+
+# ── Datasource: in-memory H2 ───────────────────────────────────────
+# All data lives in memory and is lost on restart. DB_CLOSE_DELAY=-1
+# keeps the database alive as long as the JVM runs, even if all
+# connections are closed. No filesystem storage needed.
+#quarkus.datasource.db-kind=h2
+#quarkus.datasource.jdbc.url=jdbc:h2:mem:llmtoolbox;DB_CLOSE_DELAY=-1
+#quarkus.datasource.username=sa
+#quarkus.datasource.password=
+
+# ── Hibernate DDL ──────────────────────────────────────────────────
+# drop-and-create: wipes and recreates tables on every boot (dev only).
+# update: applies schema changes without dropping data — safe for dev,
+#   does not remove columns or tables.
+# none: no automatic DDL. Use this in production.
+#quarkus.hibernate-orm.database.generation=update
+
+# Log generated SQL to stdout. Set to true for debugging.
+#quarkus.hibernate-orm.log.sql=false
+
+# ── Execution ──────────────────────────────────────────────────────
+
+# Maximum wall-clock time (seconds) for any shell command spawned by
+# tools (mvn, ping, dig, curl, etc.). The process is killed if it
+# exceeds this. Maven builds may need 180+.
+#llmtoolbox.command.timeout-seconds=30
+
+# Enable the /api/tools/terminal/execute endpoint — raw, unrestricted
+# shell access for the LLM. If the JVM runs as a user with NOPASSWD
+# sudo, this effectively grants root. You've been warned.
+#llmtoolbox.terminal.allow=false
+# ── Filesystem ─────────────────────────────────────────────────────
+
+# Root directory that all operations are confined to. Symlink
+# escapes are detected and blocked. Set to your project workspace.
+#llmtoolbox.files.allowed-root=/opt/app
+
+# Maximum bytes for reading a single file (read, replace, replace-regex).
+#llmtoolbox.files.max-read-bytes=1048576
+
+# Maximum total bytes across all files in a pack-folder response.
+#llmtoolbox.files.max-pack-total-bytes=2097152
+
+# Maximum bytes per individual file included in a pack-folder bundle.
+#llmtoolbox.files.max-pack-file-bytes=262144
+
+# Maximum number of files included in a pack-folder bundle.
+#llmtoolbox.files.max-pack-files=200
+
+# ── Calculator ─────────────────────────────────────────────────────
+
+# Decimal places for rounding all calculator results. Applied to both
+# inputs and outputs (e.g. add(1.00000009, 2) → 3.0 at 8 digits).
+# Set to -1 to disable rounding entirely. 0 rounds to integers.
+# Note: beyond ~2^53 (≈9e15), double precision drops below 1.0 —
+# integers themselves can't be represented exactly, so rounding
+# at any decimal place is meaningless in that range. IEEE 754 doubles have
+# ~15.9 significant decimal digits; 8 is a safe middle ground that
+# avoids floating-point noise without losing meaningful precision.
+#llmtoolbox.calculator.rounding-digits=8
+
+# ── Network ────────────────────────────────────────────────────────
+
+# Block curl from targeting private/internal IP ranges (localhost,
+# 10.x, 172.16-31.x, 192.168.x, link-local, IPv6 ULA). Set to true
+# if the LLM should only reach public internet hosts.
+#llmtoolbox.net.curl.block-private-ips=false
+
+# ── Communication (Telegram) ────────────────────────────────────────
+
+# Bot token from @BotFather. Leave unset to disable Telegram.
+#llmtoolbox.communication.telegram.token=0
+
+# Target chat ID. After creating the bot, send it a few messages,
+# then curl: https://api.telegram.org/bot<TOKEN>/getUpdates
+# The chat id is in the JSON response under result[].message.chat.id
+#llmtoolbox.communication.telegram.chatid=0
+
+# ── Security ──────────────────────────────────────────────────────
+
+# Master Bearer token for API access. Send as: Authorization: Bearer <token>
+#llmtoolbox.auth.token=change-me
+
+# Initial admin user — created on first boot if it doesn't exist.
+# Password is bcrypt-hashed before storage. Change after first login.
+#llmtoolbox.auth.admin.username=admin
+#llmtoolbox.auth.admin.password=admin
+
+# Form login for the browser UI. Uses session cookies.
+#quarkus.http.auth.form.enabled=true
+
+# Session lifetime in seconds (86400 = 24 hours).
+#quarkus.http.auth.form.timeout=86400
+
+# How often the session cookie is refreshed, in seconds.
+#quarkus.http.auth.form.new-cookie-interval=3600
+
+# Pepper value used to hash user-created API keys. Change this to
+# invalidate all existing user keys.
+#llmtoolbox.api-key.pepper=llmtoolbox-pepper
+

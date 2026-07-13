@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: layout(title='Presets', activePath='/ui/presets', content=~{::#page-content})}">
+<body>
+<div id="page-content">
+    <h1 class="page-title">Presets</h1>
+    <p class="page-subtitle">Manage tool presets and their function prefixes</p>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h2 style="margin:0;">All Presets</h2>
+        <a href="/ui/presets/new" class="btn btn-primary">+ New Preset</a>
+    </div>
+
+    <div id="presets-list">Loading&hellip;</div>
+
+    <script>
+    function esc(s) { return s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; }
+
+    async function loadPresets() {
+        try {
+            var res = await fetch('/api/tools/basics/presets/all');
+            var presets = await res.json();
+            var container = document.getElementById('presets-list');
+
+            if (!presets || presets.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="icon">&#x1F4E6;</div><div>No presets yet. <a href="/ui/presets/new">Create one</a></div></div>';
+                return;
+            }
+
+            presets.sort(function(a, b) { return a.name.toLowerCase().localeCompare(b.name.toLowerCase()); });
+
+            var html = '<table><thead><tr>'
+                + '<th>Name</th><th>Prefixes</th><th></th>'
+                + '</tr></thead><tbody>';
+
+            presets.forEach(function(p) {
+                var prefixes = (p.prefixes || []).join(', ');
+                html += '<tr>'
+                    + '<td><a href="/ui/presets/' + encodeURIComponent(p.name) + '"><strong>' + esc(p.name) + '</strong></a></td>'
+                    + '<td class="muted small">' + esc(prefixes || '&mdash;') + '</td>'
+                    + '<td style="display:flex;gap:4px;">'
+                    + '<a href="/ui/presets/' + encodeURIComponent(p.name) + '" class="btn btn-small">View</a>'
+                    + '<a href="/api/openapi/preset/' + encodeURIComponent(p.name) + '" target="_blank" class="btn btn-small">JSON</a>'
+                    + '</td>'
+                    + '</tr>';
+            });
+
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        } catch(e) {
+            document.getElementById('presets-list').innerHTML = '<div class="muted">Error loading presets</div>';
+        }
+    }
+
+    loadPresets();
+    </script>
+</div>
+</body>
+</html>

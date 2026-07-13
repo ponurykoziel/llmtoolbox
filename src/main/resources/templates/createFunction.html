@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: layout(title='Create Function', activePath='/ui/functions', content=~{::#page-content})}">
+<body>
+<div id="page-content">
+    <div class="breadcrumb">
+        <a href="/">Dashboard</a>
+        <span class="sep">/</span>
+        <a href="/ui/functions">Functions</a>
+        <span class="sep">/</span>
+        <strong>New Function</strong>
+    </div>
+
+    <h1 class="page-title">Create Custom Function</h1>
+    <p class="page-subtitle">Define a new LLM tool function with implementation</p>
+
+    <div class="card" style="margin-bottom:24px;">
+        <div class="card-body">
+            <form id="create-form" class="stack" style="gap:14px;">
+                <div class="form-group">
+                    <label>Operation ID</label>
+                    <input type="text" id="f-operationId" placeholder="e.g. my_custom_tool" required>
+                    <span class="muted small">Unique identifier for this function (used in OpenAPI spec).</span>
+                </div>
+                <div class="form-group">
+                    <label>Input Schema (JSON)</label>
+                    <textarea id="f-input" placeholder='{"type":"object","properties":{...}}' rows="4"></textarea>
+                    <span class="muted small">JSON Schema for the function's input parameters.</span>
+                </div>
+                <div class="form-group">
+                    <label>Output Schema (JSON)</label>
+                    <textarea id="f-output" placeholder='{"type":"object","properties":{...}}' rows="4"></textarea>
+                    <span class="muted small">JSON Schema for the function's return value.</span>
+                </div>
+                <div class="form-group" style="max-width:300px;">
+                    <label>Target Language</label>
+                    <select id="f-language">
+                        <option value="python">Python</option>
+                        <option value="javascript">JavaScript</option>
+                        <option value="bash">Bash</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Implementation</label>
+                    <textarea id="f-implementation" placeholder="def run(input):&#10;    # your code here&#10;    return {'result': ...}" rows="8" style="font-family:monospace;"></textarea>
+                    <span class="muted small">The actual function code.</span>
+                </div>
+                <div class="form-group">
+                    <label>Harness</label>
+                    <textarea id="f-harness" placeholder="#!/usr/bin/env python3&#10;import json, sys&#10;# harness code" rows="6" style="font-family:monospace;"></textarea>
+                    <span class="muted small">Wrapper/harness code that invokes the implementation.</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <button type="submit" class="btn btn-primary">Create Function</button>
+                    <a href="/ui/functions" class="btn">Cancel</a>
+                </div>
+            </form>
+            <div id="create-status" class="status-box" style="margin-top:12px;"></div>
+        </div>
+    </div>
+
+    <script>
+    function esc(s) { return s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; }
+
+    document.getElementById('create-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        var statusEl = document.getElementById('create-status');
+        statusEl.textContent = 'Creating…';
+        try {
+            var body = {
+                operationId: document.getElementById('f-operationId').value.trim(),
+                input: document.getElementById('f-input').value.trim() || null,
+                output: document.getElementById('f-output').value.trim() || null,
+                targetLanguage: document.getElementById('f-language').value,
+                implementation: document.getElementById('f-implementation').value.trim(),
+                harness: document.getElementById('f-harness').value.trim() || null
+            };
+            var res = await fetch('/api/tools/functions', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body)
+            });
+            if (res.ok) {
+                var fn = await res.json();
+                statusEl.innerHTML = '<span class="pill pill-done">Created!</span> Redirecting…';
+                setTimeout(function() {
+                    window.location.href = '/ui/functions/' + encodeURIComponent(fn.id);
+                }, 600);
+            } else {
+                var err = await res.json();
+                statusEl.innerHTML = '<span class="pill pill-failed">' + esc(err.error || err.message || 'Error creating function') + '</span>';
+            }
+        } catch(e) {
+            statusEl.innerHTML = '<span class="pill pill-failed">Request failed</span>';
+        }
+    });
+    </script>
+</div>
+</body>
+</html>

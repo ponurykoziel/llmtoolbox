@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: layout(title='Dashboard', activePath='/', content=~{::#page-content})}">
+<body>
+<div id="page-content">
+    <h1 class="page-title">Dashboard</h1>
+    <p class="page-subtitle">Overview of your presets and functions</p>
+
+    <div class="grid grid-2" style="margin-bottom: 24px;">
+        <div class="card">
+            <div class="card-body">
+                <h3>Presets</h3>
+                <div class="stat" id="preset-count">&mdash;</div>
+                <div class="muted small">Tool presets</div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-body">
+                <h3>Functions</h3>
+                <div class="stat" id="function-count">&mdash;</div>
+                <div class="muted small">Built-in + custom</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-2" style="margin-bottom: 24px;">
+        <div class="card">
+            <div class="card-body">
+                <h2>Quick Links</h2>
+                <div class="stack" style="gap:8px;">
+                    <a href="/ui/presets" class="btn btn-primary" style="text-align:center;">Manage Presets</a>
+                    <a href="/ui/functions" class="btn btn-primary" style="text-align:center;">Browse Functions</a>
+                    <a href="/q/swagger-ui" class="btn" style="text-align:center;">API Docs (Swagger)</a>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-body">
+                <h2>Functions Breakdown</h2>
+                <div id="functions-breakdown" class="status-box">Loading&hellip;</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function esc(s) { return s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; }
+
+    async function refresh() {
+        try {
+            var [presetsRes, builtinRes, customRes] = await Promise.all([
+                fetch('/api/tools/basics/presets/all'),
+                fetch('/api/functions/builtin'),
+                fetch('/api/tools/functions').catch(function() { return {ok: false}; })
+            ]);
+
+            var presets = presetsRes.ok ? await presetsRes.json() : [];
+            var builtins = builtinRes.ok ? await builtinRes.json() : [];
+            var customs = customRes.ok ? await customRes.json() : [];
+
+            document.getElementById('preset-count').textContent = presets.length;
+            document.getElementById('function-count').textContent = builtins.length + customs.length;
+
+            var breakdownHtml = '<div class="stack" style="gap:8px;">'
+                + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+                + '<span class="pill pill-normal" style="white-space:nowrap;">built-in</span>'
+                + '<span style="font-size:18px;font-weight:700;">' + builtins.length + '</span>'
+                + '</div>'
+                + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+                + '<span class="pill pill-doing" style="white-space:nowrap;">custom</span>'
+                + '<span style="font-size:18px;font-weight:700;">' + customs.length + '</span>'
+                + '</div>'
+                + '</div>';
+            document.getElementById('functions-breakdown').innerHTML = breakdownHtml;
+        } catch(e) {
+            console.error('Dashboard refresh failed', e);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', refresh);
+    </script>
+
+</div>
+</body>
+</html>

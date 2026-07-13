@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: layout(title='Functions', activePath='/ui/functions', content=~{::#page-content})}">
+<body>
+<div id="page-content">
+    <h1 class="page-title">Functions</h1>
+    <p class="page-subtitle">Built-in and custom LLM tool functions</p>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h2 style="margin:0;">All Functions</h2>
+        <!-- + New Function button intentionally removed -->
+    </div>
+
+    <div id="functions-list">Loading&hellip;</div>
+
+    <script>
+    function esc(s) { return s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; }
+
+    function typeBadge(type) {
+        if (type === 'builtin') return '<span class="pill pill-normal" style="font-size:10px;padding:2px 7px;white-space:nowrap;">built-in</span>';
+        if (type === 'custom') return '<span class="pill pill-doing" style="font-size:10px;padding:2px 7px;white-space:nowrap;">custom</span>';
+        return '';
+    }
+
+    async function loadFunctions() {
+        try {
+            var [builtinRes, customRes] = await Promise.all([
+                fetch('/api/functions/builtin'),
+                fetch('/api/tools/functions').catch(function() { return {ok: false}; })
+            ]);
+
+            var functions = [];
+
+            if (builtinRes.ok) {
+                var builtins = await builtinRes.json();
+                builtins.forEach(function(f) {
+                    functions.push({
+                        operationId: f.operationId,
+                        description: f.description || '',
+                        type: 'builtin'
+                    });
+                });
+            }
+
+            if (customRes.ok) {
+                var customFunctions = await customRes.json();
+                customFunctions.forEach(function(f) {
+                    functions.push({
+                        operationId: f.operationId || f.id,
+                        description: f.input || '',
+                        type: 'custom',
+                        id: f.id,
+                        targetLanguage: f.targetLanguage
+                    });
+                });
+            }
+
+            functions.sort(function(a, b) { return (a.operationId || '').toLowerCase().localeCompare((b.operationId || '').toLowerCase()); });
+
+            var container = document.getElementById('functions-list');
+
+            if (!functions || functions.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="icon">&#x1F527;</div><div>No functions found. <a href="/ui/functions/new">Create a custom one</a></div></div>';
+                return;
+            }
+
+            var html = '<table><thead><tr>'
+                + '<th>Operation ID</th><th>Description</th><th>Type</th><th></th>'
+                + '</tr></thead><tbody>';
+
+            functions.forEach(function(f) {
+                var link = f.type === 'custom'
+                    ? '<a href="/ui/functions/' + encodeURIComponent(f.id) + '"><strong>' + esc(f.operationId) + '</strong></a>'
+                    : '<strong>' + esc(f.operationId) + '</strong>';
+                var desc = f.description || (f.type === 'custom' ? '&mdash;' : '');
+                html += '<tr>'
+                    + '<td>' + link + '</td>'
+                    + '<td class="muted small">' + esc(desc) + '</td>'
+                    + '<td>' + typeBadge(f.type) + '</td>'
+                    + '<td>' + (f.type === 'custom' ? '<a href="/ui/functions/' + encodeURIComponent(f.id) + '" class="btn btn-small">View</a>' : '') + '</td>'
+                    + '</tr>';
+            });
+
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        } catch(e) {
+            document.getElementById('functions-list').innerHTML = '<div class="muted">Error loading functions</div>';
+        }
+    }
+
+    loadFunctions();
+    </script>
+</div>
+</body>
+</html>
