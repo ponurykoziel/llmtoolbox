@@ -9,6 +9,8 @@ import jakarta.enterprise.context.ApplicationScoped;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
+import java.util.Locale;
+
 @Startup
 @ApplicationScoped
 public class AuthStartupBean {
@@ -26,6 +28,7 @@ public class AuthStartupBean {
 
     @PostConstruct
     void init() {
+        Locale.setDefault(Locale.US);
         QuarkusTransaction.run(() -> {
             if (!seedOnStartup) {
                 LOG.debug("Seed-on-startup disabled; skipping admin user check.");
