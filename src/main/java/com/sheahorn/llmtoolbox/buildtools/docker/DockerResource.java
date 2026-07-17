@@ -19,221 +19,153 @@ public class DockerResource {
     @Inject
     DockerLockService lock;
 
-    // ── info ─────────────────────────────────────────────────
+    // ── print ─────────────────────────────────────────────────
 
     @Operation(
-            operationId = "devops_docker_version",
+            operationId = "devops_docker_print_version",
             summary = "Runs `docker version`"
     )
     @POST
-    @Path("/version")
-    public ExecutionResponse version(DockerRequestDto request) throws Exception {
+    @Path("/print-version")
+    public ExecutionResponse printVersion(DockerEmptyRequest request) throws Exception {
         return run("docker version");
     }
 
     @Operation(
-            operationId = "devops_docker_info",
+            operationId = "devops_docker_print_info",
             summary = "Runs `docker info`"
     )
     @POST
-    @Path("/info")
-    public ExecutionResponse info(DockerRequestDto request) throws Exception {
+    @Path("/print-info")
+    public ExecutionResponse printInfo(DockerEmptyRequest request) throws Exception {
         return run("docker info");
     }
 
-    // ── containers: list / inspect ────────────────────────────
+    @Operation(
+            operationId = "devops_docker_print_stats",
+            summary = "Runs `docker stats --no-stream` (one-shot) for all containers"
+    )
+    @POST
+    @Path("/print-stats")
+    public ExecutionResponse printStats(DockerEmptyRequest request) throws Exception {
+        return run("docker stats --no-stream");
+    }
+
+    // ── containers ───────────────────────────────────────────
 
     @Operation(
-            operationId = "devops_docker_ps",
+            operationId = "devops_docker_container_list",
             summary = "Runs `docker ps -a` to list all containers"
     )
     @POST
-    @Path("/ps")
-    public ExecutionResponse ps(DockerRequestDto request) throws Exception {
+    @Path("/container-list")
+    public ExecutionResponse containerList(DockerEmptyRequest request) throws Exception {
         return run("docker ps -a");
     }
 
     @Operation(
-            operationId = "devops_docker_ps_running",
-            summary = "Runs `docker ps` to list running containers only"
-    )
-    @POST
-    @Path("/ps-running")
-    public ExecutionResponse psRunning(DockerRequestDto request) throws Exception {
-        return run("docker ps");
-    }
-
-    @Operation(
-            operationId = "devops_docker_inspect",
+            operationId = "devops_docker_container_inspect",
             summary = "Runs `docker inspect <container>`"
     )
     @POST
-    @Path("/inspect")
-    public ExecutionResponse inspect(DockerRequestDto request) throws Exception {
+    @Path("/container-inspect")
+    public ExecutionResponse containerInspect(DockerContainerRequest request) throws Exception {
         validateContainer(request);
         return run("docker inspect " + ToolSupport.shellQuote(request.container));
     }
 
     @Operation(
-            operationId = "devops_docker_top",
+            operationId = "devops_docker_container_top",
             summary = "Runs `docker top <container>` to show processes"
     )
     @POST
-    @Path("/top")
-    public ExecutionResponse top(DockerRequestDto request) throws Exception {
+    @Path("/container-top")
+    public ExecutionResponse containerTop(DockerContainerRequest request) throws Exception {
         validateContainer(request);
         return run("docker top " + ToolSupport.shellQuote(request.container));
     }
 
     @Operation(
-            operationId = "devops_docker_stats",
-            summary = "Runs `docker stats --no-stream` (one-shot) for all containers, or a single container if specified"
-    )
-    @POST
-    @Path("/stats")
-    public ExecutionResponse stats(DockerRequestDto request) throws Exception {
-        if (request != null && request.container != null && !request.container.isBlank()) {
-            return run("docker stats --no-stream " + ToolSupport.shellQuote(request.container));
-        }
-        return run("docker stats --no-stream");
-    }
-
-    @Operation(
-            operationId = "devops_docker_port",
+            operationId = "devops_docker_container_ports",
             summary = "Runs `docker port <container>` to show port mappings"
     )
     @POST
-    @Path("/port")
-    public ExecutionResponse port(DockerRequestDto request) throws Exception {
+    @Path("/container-ports")
+    public ExecutionResponse containerPorts(DockerContainerRequest request) throws Exception {
         validateContainer(request);
         return run("docker port " + ToolSupport.shellQuote(request.container));
     }
 
-    // ── logs ─────────────────────────────────────────────────
-
     @Operation(
-            operationId = "devops_docker_logs",
-            summary = "Runs `docker logs <container>` — requires container field"
+            operationId = "devops_docker_container_logs_full",
+            summary = "Runs `docker logs <container>` (full log output)"
     )
     @POST
-    @Path("/logs")
-    public ExecutionResponse logs(DockerRequestDto request) throws Exception {
+    @Path("/container-logs-full")
+    public ExecutionResponse containerLogsFull(DockerContainerRequest request) throws Exception {
         validateContainer(request);
-        StringBuilder cmd = new StringBuilder("docker logs");
-        if (request != null && request.tail != null && !request.tail.isBlank()) {
-            cmd.append(" --tail ").append(ToolSupport.shellQuote(request.tail));
-        }
-        cmd.append(" ").append(ToolSupport.shellQuote(request.container));
-        return run(cmd.toString());
+        return run("docker logs " + ToolSupport.shellQuote(request.container));
     }
 
-    // ── lifecycle ────────────────────────────────────────────
-
     @Operation(
-            operationId = "devops_docker_run",
-            summary = "Runs `docker run -d <image>` with optional flags (name, port, env, volume, network, hostname, restart, rm)"
+            operationId = "devops_docker_container_logs_tail",
+            summary = "Runs `docker logs --tail <n> <container>` — n is required"
     )
     @POST
-    @Path("/run")
-    public ExecutionResponse runContainer(DockerRequestDto request) throws Exception {
-        if (request == null || request.image == null || request.image.isBlank()) {
-            throw new IllegalArgumentException("image is required");
+    @Path("/container-logs-tail")
+    public ExecutionResponse containerLogsTail(DockerContainerLogsTailRequest request) throws Exception {
+        if (request == null || request.container == null || request.container.isBlank()) {
+            throw new IllegalArgumentException("container is required");
         }
-        StringBuilder cmd = new StringBuilder("docker run -d");
-        if (request.name != null && !request.name.isBlank()) {
-            cmd.append(" --name ").append(ToolSupport.shellQuote(request.name));
+        if (request.n == null || request.n <= 0) {
+            throw new IllegalArgumentException("n is required and must be positive");
         }
-        if (request.port != null && !request.port.isBlank()) {
-            cmd.append(" -p ").append(ToolSupport.shellQuote(request.port));
-        }
-        if (request.env != null && !request.env.isBlank()) {
-            cmd.append(" -e ").append(ToolSupport.shellQuote(request.env));
-        }
-        if (request.volume != null && !request.volume.isBlank()) {
-            cmd.append(" -v ").append(ToolSupport.shellQuote(request.volume));
-        }
-        if (request.network != null && !request.network.isBlank()) {
-            cmd.append(" --network ").append(ToolSupport.shellQuote(request.network));
-        }
-        if (request.hostname != null && !request.hostname.isBlank()) {
-            cmd.append(" --hostname ").append(ToolSupport.shellQuote(request.hostname));
-        }
-        if (request.restart != null && !request.restart.isBlank()) {
-            cmd.append(" --restart ").append(ToolSupport.shellQuote(request.restart));
-        }
-        if (Boolean.TRUE.equals(request.rm)) {
-            cmd.append(" --rm");
-        }
-        cmd.append(" ").append(ToolSupport.shellQuote(request.image));
-        if (request.command != null && !request.command.isBlank()) {
-            cmd.append(" ").append(request.command);
-        }
-        return run(cmd.toString());
+        return run("docker logs --tail " + request.n + " " + ToolSupport.shellQuote(request.container));
     }
 
     @Operation(
-            operationId = "devops_docker_start",
+            operationId = "devops_docker_container_start",
             summary = "Runs `docker start <container>`"
     )
     @POST
-    @Path("/start")
-    public ExecutionResponse start(DockerRequestDto request) throws Exception {
+    @Path("/container-start")
+    public ExecutionResponse containerStart(DockerContainerRequest request) throws Exception {
         validateContainer(request);
         return run("docker start " + ToolSupport.shellQuote(request.container));
     }
 
     @Operation(
-            operationId = "devops_docker_stop",
+            operationId = "devops_docker_container_stop",
             summary = "Runs `docker stop <container>`"
     )
     @POST
-    @Path("/stop")
-    public ExecutionResponse stop(DockerRequestDto request) throws Exception {
+    @Path("/container-stop")
+    public ExecutionResponse containerStop(DockerContainerRequest request) throws Exception {
         validateContainer(request);
         return run("docker stop " + ToolSupport.shellQuote(request.container));
     }
 
     @Operation(
-            operationId = "devops_docker_restart",
+            operationId = "devops_docker_container_restart",
             summary = "Runs `docker restart <container>`"
     )
     @POST
-    @Path("/restart")
-    public ExecutionResponse restart(DockerRequestDto request) throws Exception {
+    @Path("/container-restart")
+    public ExecutionResponse containerRestart(DockerContainerRequest request) throws Exception {
         validateContainer(request);
         return run("docker restart " + ToolSupport.shellQuote(request.container));
     }
 
     @Operation(
-            operationId = "devops_docker_pause",
-            summary = "Runs `docker pause <container>`"
-    )
-    @POST
-    @Path("/pause")
-    public ExecutionResponse pause(DockerRequestDto request) throws Exception {
-        validateContainer(request);
-        return run("docker pause " + ToolSupport.shellQuote(request.container));
-    }
-
-    @Operation(
-            operationId = "devops_docker_unpause",
-            summary = "Runs `docker unpause <container>`"
-    )
-    @POST
-    @Path("/unpause")
-    public ExecutionResponse unpause(DockerRequestDto request) throws Exception {
-        validateContainer(request);
-        return run("docker unpause " + ToolSupport.shellQuote(request.container));
-    }
-
-    @Operation(
-            operationId = "devops_docker_rename",
+            operationId = "devops_docker_container_rename",
             summary = "Runs `docker rename <container> <name>` — container is old name, name is new name"
     )
     @POST
-    @Path("/rename")
-    public ExecutionResponse rename(DockerRequestDto request) throws Exception {
-        validateContainer(request);
+    @Path("/container-rename")
+    public ExecutionResponse containerRename(DockerContainerRenameRequest request) throws Exception {
+        if (request == null || request.container == null || request.container.isBlank()) {
+            throw new IllegalArgumentException("container is required");
+        }
         if (request.name == null || request.name.isBlank()) {
             throw new IllegalArgumentException("name (new name) is required");
         }
@@ -241,149 +173,24 @@ public class DockerResource {
                 + " " + ToolSupport.shellQuote(request.name));
     }
 
-    // ── removal ──────────────────────────────────────────────
-
     @Operation(
-            operationId = "devops_docker_rm",
+            operationId = "devops_docker_container_remove",
             summary = "Runs `docker rm <container>`"
     )
     @POST
-    @Path("/rm")
-    public ExecutionResponse rm(DockerRequestDto request) throws Exception {
+    @Path("/container-remove")
+    public ExecutionResponse containerRemove(DockerContainerRequest request) throws Exception {
         validateContainer(request);
-        String flag = Boolean.TRUE.equals(request.force) ? " -f" : "";
-        return run("docker rm" + flag + " " + ToolSupport.shellQuote(request.container));
+        return run("docker rm " + ToolSupport.shellQuote(request.container));
     }
 
     @Operation(
-            operationId = "devops_docker_rmi",
-            summary = "Runs `docker rmi <image>`"
-    )
-    @POST
-    @Path("/rmi")
-    public ExecutionResponse rmi(DockerRequestDto request) throws Exception {
-        if (request == null || request.image == null || request.image.isBlank()) {
-            throw new IllegalArgumentException("image is required");
-        }
-        String flag = Boolean.TRUE.equals(request.force) ? " -f" : "";
-        return run("docker rmi" + flag + " " + ToolSupport.shellQuote(request.image));
-    }
-
-    @Operation(
-            operationId = "devops_docker_system_prune",
-            summary = "Runs `docker system prune -f` to remove unused data"
-    )
-    @POST
-    @Path("/system-prune")
-    public ExecutionResponse systemPrune(DockerRequestDto request) throws Exception {
-        return run("docker system prune -f");
-    }
-
-    // ── images ───────────────────────────────────────────────
-
-    @Operation(
-            operationId = "devops_docker_images",
-            summary = "Runs `docker images` to list all images"
-    )
-    @POST
-    @Path("/images")
-    public ExecutionResponse images(DockerRequestDto request) throws Exception {
-        return run("docker images");
-    }
-
-    @Operation(
-            operationId = "devops_docker_pull",
-            summary = "Runs `docker pull <image>`"
-    )
-    @POST
-    @Path("/pull")
-    public ExecutionResponse pull(DockerRequestDto request) throws Exception {
-        if (request == null || request.image == null || request.image.isBlank()) {
-            throw new IllegalArgumentException("image is required");
-        }
-        return run("docker pull " + ToolSupport.shellQuote(request.image));
-    }
-
-    @Operation(
-            operationId = "devops_docker_push",
-            summary = "Runs `docker push <image>`"
-    )
-    @POST
-    @Path("/push")
-    public ExecutionResponse push(DockerRequestDto request) throws Exception {
-        if (request == null || request.image == null || request.image.isBlank()) {
-            throw new IllegalArgumentException("image is required");
-        }
-        return run("docker push " + ToolSupport.shellQuote(request.image));
-    }
-
-    @Operation(
-            operationId = "devops_docker_build",
-            summary = "Runs `docker build -t <name> .` — name is required"
-    )
-    @POST
-    @Path("/build")
-    public ExecutionResponse build(DockerRequestDto request) throws Exception {
-        if (request == null || request.name == null || request.name.isBlank()) {
-            throw new IllegalArgumentException("name (tag) is required");
-        }
-        return run("docker build -t " + ToolSupport.shellQuote(request.name) + " .");
-    }
-
-    @Operation(
-            operationId = "devops_docker_tag",
-            summary = "Runs `docker tag <source> <target>` — source and target fields required"
-    )
-    @POST
-    @Path("/tag")
-    public ExecutionResponse tag(DockerRequestDto request) throws Exception {
-        if (request == null || request.source == null || request.source.isBlank()) {
-            throw new IllegalArgumentException("source is required");
-        }
-        if (request.target == null || request.target.isBlank()) {
-            throw new IllegalArgumentException("target is required");
-        }
-        return run("docker tag " + ToolSupport.shellQuote(request.source)
-                + " " + ToolSupport.shellQuote(request.target));
-    }
-
-    @Operation(
-            operationId = "devops_docker_history",
-            summary = "Runs `docker history <image>`"
-    )
-    @POST
-    @Path("/history")
-    public ExecutionResponse history(DockerRequestDto request) throws Exception {
-        if (request == null || request.image == null || request.image.isBlank()) {
-            throw new IllegalArgumentException("image is required");
-        }
-        return run("docker history " + ToolSupport.shellQuote(request.image));
-    }
-
-    // ── exec / cp ────────────────────────────────────────────
-
-    @Operation(
-            operationId = "devops_docker_exec",
-            summary = "Runs `docker exec <container> <command>` — container and command required"
-    )
-    @POST
-    @Path("/exec")
-    public ExecutionResponse exec(DockerRequestDto request) throws Exception {
-        validateContainer(request);
-        if (request.command == null || request.command.isBlank()) {
-            throw new IllegalArgumentException("command is required");
-        }
-        return run("docker exec " + ToolSupport.shellQuote(request.container)
-                + " " + request.command);
-    }
-
-    @Operation(
-            operationId = "devops_docker_cp",
+            operationId = "devops_docker_container_retrieve_file",
             summary = "Runs `docker cp <source> <target>` — source and target fields required (container paths use <container>:<path> syntax)"
     )
     @POST
-    @Path("/cp")
-    public ExecutionResponse cp(DockerRequestDto request) throws Exception {
+    @Path("/container-retrieve-file")
+    public ExecutionResponse containerRetrieveFile(DockerCpRequest request) throws Exception {
         if (request == null || request.source == null || request.source.isBlank()) {
             throw new IllegalArgumentException("source is required");
         }
@@ -394,54 +201,220 @@ public class DockerResource {
                 + " " + ToolSupport.shellQuote(request.target));
     }
 
+    @Operation(
+            operationId = "devops_docker_container_connect_to_network",
+            summary = "Runs `docker network connect <network> <container>`"
+    )
+    @POST
+    @Path("/container-connect-to-network")
+    public ExecutionResponse containerConnectToNetwork(DockerContainerNetworkRequest request) throws Exception {
+        if (request == null || request.container == null || request.container.isBlank()) {
+            throw new IllegalArgumentException("container is required");
+        }
+        if (request.network == null || request.network.isBlank()) {
+            throw new IllegalArgumentException("network is required");
+        }
+        return run("docker network connect " + ToolSupport.shellQuote(request.network)
+                + " " + ToolSupport.shellQuote(request.container));
+    }
+
+    @Operation(
+            operationId = "devops_docker_container_disconnect_from_network",
+            summary = "Runs `docker network disconnect <network> <container>`"
+    )
+    @POST
+    @Path("/container-disconnect-from-network")
+    public ExecutionResponse containerDisconnectFromNetwork(DockerContainerNetworkRequest request) throws Exception {
+        if (request == null || request.container == null || request.container.isBlank()) {
+            throw new IllegalArgumentException("container is required");
+        }
+        if (request.network == null || request.network.isBlank()) {
+            throw new IllegalArgumentException("network is required");
+        }
+        return run("docker network disconnect " + ToolSupport.shellQuote(request.network)
+                + " " + ToolSupport.shellQuote(request.container));
+    }
+
+    // ── images ───────────────────────────────────────────────
+
+    @Operation(
+            operationId = "devops_docker_image_list",
+            summary = "Runs `docker images` to list all images"
+    )
+    @POST
+    @Path("/image-list")
+    public ExecutionResponse imageList(DockerEmptyRequest request) throws Exception {
+        return run("docker images");
+    }
+
+    @Operation(
+            operationId = "devops_docker_image_pull",
+            summary = "Runs `docker pull <image>`"
+    )
+    @POST
+    @Path("/image-pull")
+    public ExecutionResponse imagePull(DockerImageRequest request) throws Exception {
+        if (request == null || request.image == null || request.image.isBlank()) {
+            throw new IllegalArgumentException("image is required");
+        }
+        return run("docker pull " + ToolSupport.shellQuote(request.image));
+    }
+
+    @Operation(
+            operationId = "devops_docker_image_push",
+            summary = "Runs `docker push <image>`"
+    )
+    @POST
+    @Path("/image-push")
+    public ExecutionResponse imagePush(DockerImageRequest request) throws Exception {
+        if (request == null || request.image == null || request.image.isBlank()) {
+            throw new IllegalArgumentException("image is required");
+        }
+        return run("docker push " + ToolSupport.shellQuote(request.image));
+    }
+
+    @Operation(
+            operationId = "devops_docker_image_remove",
+            summary = "Runs `docker rmi <image>`"
+    )
+    @POST
+    @Path("/image-remove")
+    public ExecutionResponse imageRemove(DockerImageRequest request) throws Exception {
+        if (request == null || request.image == null || request.image.isBlank()) {
+            throw new IllegalArgumentException("image is required");
+        }
+        return run("docker rmi " + ToolSupport.shellQuote(request.image));
+    }
+
+    @Operation(
+            operationId = "devops_docker_image_prune_all",
+            summary = "Runs `docker image prune -a` to remove all unused images"
+    )
+    @POST
+    @Path("/image-prune-all")
+    public ExecutionResponse imagePruneAll(DockerEmptyRequest request) throws Exception {
+        return run("docker image prune -a");
+    }
+
     // ── networks ─────────────────────────────────────────────
 
     @Operation(
-            operationId = "devops_docker_network_ls",
+            operationId = "devops_docker_network_list",
             summary = "Runs `docker network ls`"
     )
     @POST
-    @Path("/network-ls")
-    public ExecutionResponse networkLs(DockerRequestDto request) throws Exception {
+    @Path("/network-list")
+    public ExecutionResponse networkList(DockerEmptyRequest request) throws Exception {
         return run("docker network ls");
     }
 
     @Operation(
             operationId = "devops_docker_network_inspect",
-            summary = "Runs `docker network inspect <network>` — network field required"
+            summary = "Runs `docker network inspect <network>`"
     )
     @POST
     @Path("/network-inspect")
-    public ExecutionResponse networkInspect(DockerRequestDto request) throws Exception {
+    public ExecutionResponse networkInspect(DockerNetworkRequest request) throws Exception {
         if (request == null || request.network == null || request.network.isBlank()) {
             throw new IllegalArgumentException("network is required");
         }
         return run("docker network inspect " + ToolSupport.shellQuote(request.network));
     }
 
+    @Operation(
+            operationId = "devops_docker_network_create",
+            summary = "Runs `docker network create <name>`"
+    )
+    @POST
+    @Path("/network-create")
+    public ExecutionResponse networkCreate(DockerNameRequest request) throws Exception {
+        if (request == null || request.name == null || request.name.isBlank()) {
+            throw new IllegalArgumentException("name is required");
+        }
+        return run("docker network create " + ToolSupport.shellQuote(request.name));
+    }
+
+    @Operation(
+            operationId = "devops_docker_network_remove",
+            summary = "Runs `docker network rm <network>`"
+    )
+    @POST
+    @Path("/network-remove")
+    public ExecutionResponse networkRemove(DockerNetworkRequest request) throws Exception {
+        if (request == null || request.network == null || request.network.isBlank()) {
+            throw new IllegalArgumentException("network is required");
+        }
+        return run("docker network rm " + ToolSupport.shellQuote(request.network));
+    }
+
     // ── volumes ──────────────────────────────────────────────
 
     @Operation(
-            operationId = "devops_docker_volume_ls",
+            operationId = "devops_docker_volume_list",
             summary = "Runs `docker volume ls`"
     )
     @POST
-    @Path("/volume-ls")
-    public ExecutionResponse volumeLs(DockerRequestDto request) throws Exception {
+    @Path("/volume-list")
+    public ExecutionResponse volumeList(DockerEmptyRequest request) throws Exception {
         return run("docker volume ls");
     }
 
     @Operation(
             operationId = "devops_docker_volume_inspect",
-            summary = "Runs `docker volume inspect <volume>` — volume field required"
+            summary = "Runs `docker volume inspect <volume>`"
     )
     @POST
     @Path("/volume-inspect")
-    public ExecutionResponse volumeInspect(DockerRequestDto request) throws Exception {
+    public ExecutionResponse volumeInspect(DockerVolumeRequest request) throws Exception {
         if (request == null || request.volume == null || request.volume.isBlank()) {
             throw new IllegalArgumentException("volume is required");
         }
         return run("docker volume inspect " + ToolSupport.shellQuote(request.volume));
+    }
+
+    // ── build / history / exec ───────────────────────────────
+
+    @Operation(
+            operationId = "devops_docker_build",
+            summary = "Runs `docker build -t <name> .` — name (tag) is required"
+    )
+    @POST
+    @Path("/build")
+    public ExecutionResponse build(DockerNameRequest request) throws Exception {
+        if (request == null || request.name == null || request.name.isBlank()) {
+            throw new IllegalArgumentException("name (tag) is required");
+        }
+        return run("docker build -t " + ToolSupport.shellQuote(request.name) + " .");
+    }
+
+    @Operation(
+            operationId = "devops_docker_history",
+            summary = "Runs `docker history <image>`"
+    )
+    @POST
+    @Path("/history")
+    public ExecutionResponse history(DockerImageRequest request) throws Exception {
+        if (request == null || request.image == null || request.image.isBlank()) {
+            throw new IllegalArgumentException("image is required");
+        }
+        return run("docker history " + ToolSupport.shellQuote(request.image));
+    }
+
+    @Operation(
+            operationId = "devops_docker_exec",
+            summary = "Runs `docker exec <container> <command>` — container and command required"
+    )
+    @POST
+    @Path("/exec")
+    public ExecutionResponse exec(DockerExecRequest request) throws Exception {
+        if (request == null || request.container == null || request.container.isBlank()) {
+            throw new IllegalArgumentException("container is required");
+        }
+        if (request.command == null || request.command.isBlank()) {
+            throw new IllegalArgumentException("command is required");
+        }
+        return run("docker exec " + ToolSupport.shellQuote(request.container)
+                + " " + request.command);
     }
 
     // ── compose ──────────────────────────────────────────────
@@ -452,7 +425,7 @@ public class DockerResource {
     )
     @POST
     @Path("/compose-up")
-    public ExecutionResponse composeUp(DockerRequestDto request) throws Exception {
+    public ExecutionResponse composeUp(DockerComposeRequest request) throws Exception {
         StringBuilder cmd = composeBase(request);
         cmd.append(" up -d");
         if (request != null && request.composeService != null && !request.composeService.isBlank()) {
@@ -467,7 +440,7 @@ public class DockerResource {
     )
     @POST
     @Path("/compose-down")
-    public ExecutionResponse composeDown(DockerRequestDto request) throws Exception {
+    public ExecutionResponse composeDown(DockerComposeRequest request) throws Exception {
         StringBuilder cmd = composeBase(request);
         cmd.append(" down");
         return run(cmd.toString());
@@ -479,7 +452,7 @@ public class DockerResource {
     )
     @POST
     @Path("/compose-ps")
-    public ExecutionResponse composePs(DockerRequestDto request) throws Exception {
+    public ExecutionResponse composePs(DockerComposeRequest request) throws Exception {
         StringBuilder cmd = composeBase(request);
         cmd.append(" ps");
         return run(cmd.toString());
@@ -487,15 +460,15 @@ public class DockerResource {
 
     @Operation(
             operationId = "devops_docker_compose_logs",
-            summary = "Runs `docker compose logs` — optional composeFile path and composeService name"
+            summary = "Runs `docker compose logs` — optional composeFile path, composeService name, and n (--tail)"
     )
     @POST
     @Path("/compose-logs")
-    public ExecutionResponse composeLogs(DockerRequestDto request) throws Exception {
+    public ExecutionResponse composeLogs(DockerComposeRequest request) throws Exception {
         StringBuilder cmd = composeBase(request);
         cmd.append(" logs");
-        if (request != null && request.tail != null && !request.tail.isBlank()) {
-            cmd.append(" --tail ").append(ToolSupport.shellQuote(request.tail));
+        if (request != null && request.n != null && request.n > 0) {
+            cmd.append(" --tail ").append(request.n);
         }
         if (request != null && request.composeService != null && !request.composeService.isBlank()) {
             cmd.append(" ").append(ToolSupport.shellQuote(request.composeService));
@@ -509,7 +482,7 @@ public class DockerResource {
     )
     @POST
     @Path("/compose-restart")
-    public ExecutionResponse composeRestart(DockerRequestDto request) throws Exception {
+    public ExecutionResponse composeRestart(DockerComposeRequest request) throws Exception {
         StringBuilder cmd = composeBase(request);
         cmd.append(" restart");
         if (request != null && request.composeService != null && !request.composeService.isBlank()) {
@@ -524,7 +497,7 @@ public class DockerResource {
     )
     @POST
     @Path("/compose-build")
-    public ExecutionResponse composeBuild(DockerRequestDto request) throws Exception {
+    public ExecutionResponse composeBuild(DockerComposeRequest request) throws Exception {
         StringBuilder cmd = composeBase(request);
         cmd.append(" build");
         if (request != null && request.composeService != null && !request.composeService.isBlank()) {
@@ -539,7 +512,7 @@ public class DockerResource {
     )
     @POST
     @Path("/compose-pull")
-    public ExecutionResponse composePull(DockerRequestDto request) throws Exception {
+    public ExecutionResponse composePull(DockerComposeRequest request) throws Exception {
         StringBuilder cmd = composeBase(request);
         cmd.append(" pull");
         if (request != null && request.composeService != null && !request.composeService.isBlank()) {
@@ -550,7 +523,7 @@ public class DockerResource {
 
     // ── helpers ──────────────────────────────────────────────
 
-    private StringBuilder composeBase(DockerRequestDto request) {
+    private StringBuilder composeBase(DockerComposeRequest request) {
         StringBuilder cmd = new StringBuilder("docker compose");
         if (request != null && request.composeFile != null && !request.composeFile.isBlank()) {
             cmd.append(" -f ").append(ToolSupport.shellQuote(request.composeFile));
@@ -562,7 +535,7 @@ public class DockerResource {
         return lock.runLocked(() -> executor.execute(command));
     }
 
-    private void validateContainer(DockerRequestDto request) {
+    private void validateContainer(DockerContainerRequest request) {
         if (request == null || request.container == null || request.container.isBlank()) {
             throw new IllegalArgumentException("container is required");
         }

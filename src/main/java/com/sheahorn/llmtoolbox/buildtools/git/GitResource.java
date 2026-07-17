@@ -28,19 +28,22 @@ public class GitResource extends FsResourceSupport {
     )
     @POST
     @Path("/status")
-    public ExecutionResponse status(GitRequestDto request) throws Exception {
-        return runInRepo(request, "git status");
+    public ExecutionResponse status(GitPathRequest request) throws Exception {
+        return runInRepo(request.path, "git status");
     }
 
     @Operation(
             operationId = "devops_git_log_recent",
-            summary = "Runs `git log --oneline -n <n>` inside the repo path (defaults to 20)"
+            summary = "Runs `git log --oneline -n <n>` inside the repo path — n is required"
     )
     @POST
     @Path("/log-recent")
-    public ExecutionResponse logRecent(GitRequestDto request) throws Exception {
-        int n = (request != null && request.n != null && request.n > 0) ? request.n : 20;
-        return runInRepo(request, "git log --oneline -n " + n);
+    public ExecutionResponse logRecent(GitLogRecentRequest request) throws Exception {
+        validatePath(request.path);
+        if (request.n == null || request.n <= 0) {
+            throw new IllegalArgumentException("n is required and must be positive");
+        }
+        return runInRepo(request.path, "git log --oneline -n " + request.n);
     }
 
     @Operation(
@@ -49,8 +52,8 @@ public class GitResource extends FsResourceSupport {
     )
     @POST
     @Path("/log-oneline")
-    public ExecutionResponse logOneline(GitRequestDto request) throws Exception {
-        return runInRepo(request, "git log --oneline");
+    public ExecutionResponse logOneline(GitPathRequest request) throws Exception {
+        return runInRepo(request.path, "git log --oneline");
     }
 
     @Operation(
@@ -59,8 +62,8 @@ public class GitResource extends FsResourceSupport {
     )
     @POST
     @Path("/log")
-    public ExecutionResponse log(GitRequestDto request) throws Exception {
-        return runInRepo(request, "git log");
+    public ExecutionResponse log(GitPathRequest request) throws Exception {
+        return runInRepo(request.path, "git log");
     }
 
     @Operation(
@@ -69,8 +72,8 @@ public class GitResource extends FsResourceSupport {
     )
     @POST
     @Path("/diff")
-    public ExecutionResponse diff(GitRequestDto request) throws Exception {
-        return runInRepo(request, "git diff");
+    public ExecutionResponse diff(GitPathRequest request) throws Exception {
+        return runInRepo(request.path, "git diff");
     }
 
     @Operation(
@@ -79,8 +82,8 @@ public class GitResource extends FsResourceSupport {
     )
     @POST
     @Path("/diff-staged")
-    public ExecutionResponse diffStaged(GitRequestDto request) throws Exception {
-        return runInRepo(request, "git diff --staged");
+    public ExecutionResponse diffStaged(GitPathRequest request) throws Exception {
+        return runInRepo(request.path, "git diff --staged");
     }
 
     // ── info ─────────────────────────────────────────────────
@@ -91,8 +94,8 @@ public class GitResource extends FsResourceSupport {
     )
     @POST
     @Path("/print-remote")
-    public ExecutionResponse printRemote(GitRequestDto request) throws Exception {
-        return runInRepo(request, "git remote -v");
+    public ExecutionResponse printRemote(GitPathRequest request) throws Exception {
+        return runInRepo(request.path, "git remote -v");
     }
 
     @Operation(
@@ -101,23 +104,24 @@ public class GitResource extends FsResourceSupport {
     )
     @POST
     @Path("/print-config")
-    public ExecutionResponse printConfig(GitRequestDto request) throws Exception {
-        return runInRepo(request, "git config --list");
+    public ExecutionResponse printConfig(GitPathRequest request) throws Exception {
+        return runInRepo(request.path, "git config --list");
     }
 
     // ── staging / committing ─────────────────────────────────
 
     @Operation(
             operationId = "devops_git_add",
-            summary = "Runs `git add <files>` inside the repo path. Use files=\".\" to stage all."
+            summary = "Runs `git add <files>` inside the repo path — files is required"
     )
     @POST
     @Path("/add")
-    public ExecutionResponse add(GitRequestDto request) throws Exception {
-        validatePath(request);
-        String files = (request.files != null && !request.files.isBlank())
-                ? request.files : ".";
-        return runInRepo(request, "git add -- " + ToolSupport.shellQuote(files));
+    public ExecutionResponse add(GitAddRequest request) throws Exception {
+        validatePath(request.path);
+        if (request.files == null || request.files.isBlank()) {
+            throw new IllegalArgumentException("files is required");
+        }
+        return runInRepo(request.path, "git add -- " + ToolSupport.shellQuote(request.files));
     }
 
     @Operation(
@@ -126,53 +130,47 @@ public class GitResource extends FsResourceSupport {
     )
     @POST
     @Path("/commit")
-    public ExecutionResponse commit(GitRequestDto request) throws Exception {
-        validatePath(request);
+    public ExecutionResponse commit(GitCommitRequest request) throws Exception {
+        validatePath(request.path);
         if (request.message == null || request.message.isBlank()) {
             throw new IllegalArgumentException("message is required");
         }
-        return runInRepo(request, "git commit -m " + ToolSupport.shellQuote(request.message));
+        return runInRepo(request.path, "git commit -m " + ToolSupport.shellQuote(request.message));
     }
 
     // ── reset / clean ────────────────────────────────────────
 
     @Operation(
             operationId = "devops_git_reset_mixed",
-            summary = "Runs `git reset <commit>` (mixed reset). Defaults to HEAD if commit is not set."
+            summary = "Runs `git reset` (mixed reset to HEAD)"
     )
     @POST
     @Path("/reset-mixed")
-    public ExecutionResponse resetMixed(GitRequestDto request) throws Exception {
-        validatePath(request);
-        String commit = (request.commit != null && !request.commit.isBlank())
-                ? request.commit : "HEAD";
-        return runInRepo(request, "git reset " + ToolSupport.shellQuote(commit));
+    public ExecutionResponse resetMixed(GitPathRequest request) throws Exception {
+        validatePath(request.path);
+        return runInRepo(request.path, "git reset");
     }
 
     @Operation(
             operationId = "devops_git_reset_soft",
-            summary = "Runs `git reset --soft <commit>`. Defaults to HEAD if commit is not set."
+            summary = "Runs `git reset --soft` (soft reset to HEAD)"
     )
     @POST
     @Path("/reset-soft")
-    public ExecutionResponse resetSoft(GitRequestDto request) throws Exception {
-        validatePath(request);
-        String commit = (request.commit != null && !request.commit.isBlank())
-                ? request.commit : "HEAD";
-        return runInRepo(request, "git reset --soft " + ToolSupport.shellQuote(commit));
+    public ExecutionResponse resetSoft(GitPathRequest request) throws Exception {
+        validatePath(request.path);
+        return runInRepo(request.path, "git reset --soft");
     }
 
     @Operation(
             operationId = "devops_git_reset_hard",
-            summary = "Runs `git reset --hard <commit>`. DESTRUCTIVE — discards working tree changes. Defaults to HEAD."
+            summary = "Runs `git reset --hard` (hard reset to HEAD). DESTRUCTIVE — discards working tree changes."
     )
     @POST
     @Path("/reset-hard")
-    public ExecutionResponse resetHard(GitRequestDto request) throws Exception {
-        validatePath(request);
-        String commit = (request.commit != null && !request.commit.isBlank())
-                ? request.commit : "HEAD";
-        return runInRepo(request, "git reset --hard " + ToolSupport.shellQuote(commit));
+    public ExecutionResponse resetHard(GitPathRequest request) throws Exception {
+        validatePath(request.path);
+        return runInRepo(request.path, "git reset --hard");
     }
 
     @Operation(
@@ -181,8 +179,8 @@ public class GitResource extends FsResourceSupport {
     )
     @POST
     @Path("/reset-hard-origin")
-    public ExecutionResponse resetHardOrigin(GitRequestDto request) throws Exception {
-        validatePath(request);
+    public ExecutionResponse resetHardOrigin(GitResetHardOriginRequest request) throws Exception {
+        validatePath(request.path);
         if (request.branch == null || request.branch.isBlank()) {
             throw new IllegalArgumentException("branch is required");
         }
@@ -202,8 +200,8 @@ public class GitResource extends FsResourceSupport {
     )
     @POST
     @Path("/clean")
-    public ExecutionResponse clean(GitRequestDto request) throws Exception {
-        validatePath(request);
+    public ExecutionResponse clean(GitPathRequest request) throws Exception {
+        validatePath(request.path);
         String path = normalizePath(request.path);
         String cd = "cd -- " + ToolSupport.shellQuote(path) + " && ";
         // Directories sometimes survive the first run (e.g. nested git repos),
@@ -220,9 +218,9 @@ public class GitResource extends FsResourceSupport {
     )
     @POST
     @Path("/branch-list-local")
-    public ExecutionResponse branchListLocal(GitRequestDto request) throws Exception {
-        validatePath(request);
-        return runInRepo(request, "git branch");
+    public ExecutionResponse branchListLocal(GitPathRequest request) throws Exception {
+        validatePath(request.path);
+        return runInRepo(request.path, "git branch");
     }
 
     @Operation(
@@ -231,9 +229,9 @@ public class GitResource extends FsResourceSupport {
     )
     @POST
     @Path("/branch-list-remote")
-    public ExecutionResponse branchListRemote(GitRequestDto request) throws Exception {
-        validatePath(request);
-        return runInRepo(request, "git branch -r");
+    public ExecutionResponse branchListRemote(GitPathRequest request) throws Exception {
+        validatePath(request.path);
+        return runInRepo(request.path, "git branch -r");
     }
 
     @Operation(
@@ -242,12 +240,12 @@ public class GitResource extends FsResourceSupport {
     )
     @POST
     @Path("/branch-create")
-    public ExecutionResponse branchCreate(GitRequestDto request) throws Exception {
-        validatePath(request);
+    public ExecutionResponse branchCreate(GitBranchRequest request) throws Exception {
+        validatePath(request.path);
         if (request.branch == null || request.branch.isBlank()) {
             throw new IllegalArgumentException("branch is required");
         }
-        return runInRepo(request, "git branch " + ToolSupport.shellQuote(request.branch));
+        return runInRepo(request.path, "git branch " + ToolSupport.shellQuote(request.branch));
     }
 
     @Operation(
@@ -256,12 +254,12 @@ public class GitResource extends FsResourceSupport {
     )
     @POST
     @Path("/branch-delete-if-merged")
-    public ExecutionResponse branchDeleteIfMerged(GitRequestDto request) throws Exception {
-        validatePath(request);
+    public ExecutionResponse branchDeleteIfMerged(GitBranchRequest request) throws Exception {
+        validatePath(request.path);
         if (request.branch == null || request.branch.isBlank()) {
             throw new IllegalArgumentException("branch is required");
         }
-        return runInRepo(request, "git branch -d " + ToolSupport.shellQuote(request.branch));
+        return runInRepo(request.path, "git branch -d " + ToolSupport.shellQuote(request.branch));
     }
 
     @Operation(
@@ -270,12 +268,12 @@ public class GitResource extends FsResourceSupport {
     )
     @POST
     @Path("/branch-delete-force")
-    public ExecutionResponse branchDeleteForce(GitRequestDto request) throws Exception {
-        validatePath(request);
+    public ExecutionResponse branchDeleteForce(GitBranchRequest request) throws Exception {
+        validatePath(request.path);
         if (request.branch == null || request.branch.isBlank()) {
             throw new IllegalArgumentException("branch is required");
         }
-        return runInRepo(request, "git branch -D " + ToolSupport.shellQuote(request.branch));
+        return runInRepo(request.path, "git branch -D " + ToolSupport.shellQuote(request.branch));
     }
 
     @Operation(
@@ -284,8 +282,8 @@ public class GitResource extends FsResourceSupport {
     )
     @POST
     @Path("/branch-set-upstream")
-    public ExecutionResponse branchSetUpstream(GitRequestDto request) throws Exception {
-        validatePath(request);
+    public ExecutionResponse branchSetUpstream(GitBranchSetUpstreamRequest request) throws Exception {
+        validatePath(request.path);
         if (request.remote == null || request.remote.isBlank()) {
             throw new IllegalArgumentException("remote is required");
         }
@@ -299,7 +297,7 @@ public class GitResource extends FsResourceSupport {
         if (!branch.isEmpty()) {
             cmd += " " + ToolSupport.shellQuote(branch);
         }
-        return runInRepo(request, cmd);
+        return runInRepo(request.path, cmd);
     }
 
     // ── checkout ─────────────────────────────────────────────
@@ -310,12 +308,12 @@ public class GitResource extends FsResourceSupport {
     )
     @POST
     @Path("/checkout-branch")
-    public ExecutionResponse checkoutBranch(GitRequestDto request) throws Exception {
-        validatePath(request);
+    public ExecutionResponse checkoutBranch(GitBranchRequest request) throws Exception {
+        validatePath(request.path);
         if (request.branch == null || request.branch.isBlank()) {
             throw new IllegalArgumentException("branch is required");
         }
-        return runInRepo(request, "git checkout " + ToolSupport.shellQuote(request.branch));
+        return runInRepo(request.path, "git checkout " + ToolSupport.shellQuote(request.branch));
     }
 
     @Operation(
@@ -324,12 +322,12 @@ public class GitResource extends FsResourceSupport {
     )
     @POST
     @Path("/checkout-commit")
-    public ExecutionResponse checkoutCommit(GitRequestDto request) throws Exception {
-        validatePath(request);
+    public ExecutionResponse checkoutCommit(GitCheckoutCommitRequest request) throws Exception {
+        validatePath(request.path);
         if (request.commit == null || request.commit.isBlank()) {
             throw new IllegalArgumentException("commit is required");
         }
-        return runInRepo(request, "git checkout " + ToolSupport.shellQuote(request.commit));
+        return runInRepo(request.path, "git checkout " + ToolSupport.shellQuote(request.commit));
     }
 
     @Operation(
@@ -338,12 +336,12 @@ public class GitResource extends FsResourceSupport {
     )
     @POST
     @Path("/checkout-new-branch")
-    public ExecutionResponse checkoutNewBranch(GitRequestDto request) throws Exception {
-        validatePath(request);
+    public ExecutionResponse checkoutNewBranch(GitBranchRequest request) throws Exception {
+        validatePath(request.path);
         if (request.branch == null || request.branch.isBlank()) {
             throw new IllegalArgumentException("branch is required");
         }
-        return runInRepo(request, "git checkout -b " + ToolSupport.shellQuote(request.branch));
+        return runInRepo(request.path, "git checkout -b " + ToolSupport.shellQuote(request.branch));
     }
 
     // ── merge ────────────────────────────────────────────────
@@ -354,91 +352,98 @@ public class GitResource extends FsResourceSupport {
     )
     @POST
     @Path("/merge")
-    public ExecutionResponse merge(GitRequestDto request) throws Exception {
-        validatePath(request);
+    public ExecutionResponse merge(GitBranchRequest request) throws Exception {
+        validatePath(request.path);
         if (request.branch == null || request.branch.isBlank()) {
             throw new IllegalArgumentException("branch is required");
         }
-        return runInRepo(request, "git merge " + ToolSupport.shellQuote(request.branch));
+        return runInRepo(request.path, "git merge " + ToolSupport.shellQuote(request.branch));
     }
 
     // ── fetch ────────────────────────────────────────────────
 
     @Operation(
             operationId = "devops_git_fetch",
-            summary = "Runs `git fetch <remote>` inside the repo path (defaults to origin)"
+            summary = "Runs `git fetch` inside the repo path"
     )
     @POST
     @Path("/fetch")
-    public ExecutionResponse fetch(GitRequestDto request) throws Exception {
-        validatePath(request);
-        String remote = (request.remote != null && !request.remote.isBlank())
-                ? request.remote : "origin";
-        return runInRepo(request, "git fetch " + ToolSupport.shellQuote(remote));
+    public ExecutionResponse fetch(GitPathRequest request) throws Exception {
+        validatePath(request.path);
+        return runInRepo(request.path, "git fetch");
     }
 
     // ── push ─────────────────────────────────────────────────
 
     @Operation(
             operationId = "devops_git_push",
-            summary = "Runs `git push <remote> <branch>` or `git push <remote> <branch>:<remoteBranch>` if remoteBranch is set"
+            summary = "Runs `git push` inside the repo path"
     )
     @POST
     @Path("/push")
-    public ExecutionResponse push(GitRequestDto request) throws Exception {
-        validatePath(request);
-        String remote = (request.remote != null && !request.remote.isBlank())
-                ? request.remote : "origin";
-        String branch = (request.branch != null && !request.branch.isBlank())
-                ? request.branch : "";
+    public ExecutionResponse push(GitPathRequest request) throws Exception {
+        validatePath(request.path);
+        return runInRepo(request.path, "git push");
+    }
 
-        String cmd = "git push " + ToolSupport.shellQuote(remote);
-        if (!branch.isEmpty()) {
-            if (request.remoteBranch != null && !request.remoteBranch.isBlank()) {
-                cmd += " " + ToolSupport.shellQuote(branch) + ":" + ToolSupport.shellQuote(request.remoteBranch);
-            } else {
-                cmd += " " + ToolSupport.shellQuote(branch);
-            }
+    @Operation(
+            operationId = "devops_git_push_custom_branch",
+            summary = "Runs `git push <remote> <branch>` or `git push <remote> <branch>:<remoteBranch>` if remoteBranch is set — remote and branch are required"
+    )
+    @POST
+    @Path("/push-custom-branch")
+    public ExecutionResponse pushCustomBranch(GitPushCustomBranchRequest request) throws Exception {
+        validatePath(request.path);
+        if (request.remote == null || request.remote.isBlank()) {
+            throw new IllegalArgumentException("remote is required");
         }
-        return runInRepo(request, cmd);
+        if (request.branch == null || request.branch.isBlank()) {
+            throw new IllegalArgumentException("branch is required");
+        }
+
+        String cmd = "git push " + ToolSupport.shellQuote(request.remote);
+        if (request.remoteBranch != null && !request.remoteBranch.isBlank()) {
+            cmd += " " + ToolSupport.shellQuote(request.branch) + ":" + ToolSupport.shellQuote(request.remoteBranch);
+        } else {
+            cmd += " " + ToolSupport.shellQuote(request.branch);
+        }
+        return runInRepo(request.path, cmd);
     }
 
     // ── pull ─────────────────────────────────────────────────
 
     @Operation(
             operationId = "devops_git_pull",
-            summary = "Runs `git pull <remote> <branch>` inside the repo path (default merge)"
+            summary = "Runs `git pull` inside the repo path (default merge)"
     )
     @POST
     @Path("/pull")
-    public ExecutionResponse pull(GitRequestDto request) throws Exception {
+    public ExecutionResponse pull(GitPullRequest request) throws Exception {
         return doPull(request, "");
     }
 
     @Operation(
             operationId = "devops_git_pull_rebase",
-            summary = "Runs `git pull --rebase <remote> <branch>` inside the repo path"
+            summary = "Runs `git pull --rebase` inside the repo path"
     )
     @POST
     @Path("/pull-rebase")
-    public ExecutionResponse pullRebase(GitRequestDto request) throws Exception {
+    public ExecutionResponse pullRebase(GitPullRequest request) throws Exception {
         return doPull(request, "--rebase");
     }
 
     @Operation(
             operationId = "devops_git_pull_ff",
-            summary = "Runs `git pull --ff-only <remote> <branch>` inside the repo path"
+            summary = "Runs `git pull --ff-only` inside the repo path"
     )
     @POST
     @Path("/pull-ff")
-    public ExecutionResponse pullFf(GitRequestDto request) throws Exception {
+    public ExecutionResponse pullFf(GitPullRequest request) throws Exception {
         return doPull(request, "--ff-only");
     }
 
-    private ExecutionResponse doPull(GitRequestDto request, String flag) throws Exception {
-        validatePath(request);
-        String remote = (request.remote != null && !request.remote.isBlank())
-                ? request.remote : "origin";
+    private ExecutionResponse doPull(GitPullRequest request, String flag) throws Exception {
+        validatePath(request.path);
         String branch = (request.branch != null && !request.branch.isBlank())
                 ? request.branch : "";
 
@@ -446,11 +451,10 @@ public class GitResource extends FsResourceSupport {
         if (!flag.isEmpty()) {
             cmd.append(" ").append(flag);
         }
-        cmd.append(" ").append(ToolSupport.shellQuote(remote));
         if (!branch.isEmpty()) {
             cmd.append(" ").append(ToolSupport.shellQuote(branch));
         }
-        return runInRepo(request, cmd.toString());
+        return runInRepo(request.path, cmd.toString());
     }
 
     // ── clone ────────────────────────────────────────────────
@@ -461,26 +465,25 @@ public class GitResource extends FsResourceSupport {
     )
     @POST
     @Path("/clone")
-    public ExecutionResponse clone(GitRequestDto request) throws Exception {
-        validatePath(request);
+    public ExecutionResponse clone(GitCloneRequest request) throws Exception {
+        validatePath(request.path);
         if (request.url == null || request.url.isBlank()) {
             throw new IllegalArgumentException("url is required");
         }
-        return runInRepo(request, "git clone " + ToolSupport.shellQuote(request.url));
+        return runInRepo(request.path, "git clone " + ToolSupport.shellQuote(request.url));
     }
 
     // ── helpers ──────────────────────────────────────────────
 
-    private ExecutionResponse runInRepo(GitRequestDto request, String gitCommand) throws Exception {
-        validatePath(request);
-        String path = normalizePath(request.path);
+    private ExecutionResponse runInRepo(String rawPath, String gitCommand) throws Exception {
+        String path = normalizePath(rawPath);
         String command = "cd -- " + ToolSupport.shellQuote(path)
                 + " && " + gitCommand;
         return lock.runLocked(() -> executor.execute(command));
     }
 
-    private void validatePath(GitRequestDto request) {
-        if (request == null || request.path == null || request.path.isBlank()) {
+    private void validatePath(String path) {
+        if (path == null || path.isBlank()) {
             throw new IllegalArgumentException("path is required");
         }
     }
