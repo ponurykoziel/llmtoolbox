@@ -13,7 +13,7 @@ The application is designed as a **single-tenant system** with no provisions for
 
 - **Multi-tenancy** — no tenant isolation, no organization scoping, no per-tenant configuration
 - **Horizontal scaling** — in-memory H2 database (ADR-0009), in-process global Maven lock (ADR-0008), in-memory clipboard cache
-- **High concurrency** — no connection pooling beyond Quarkus defaults, no async processing, no message queues
+- **High concurrency** — no connection pooling beyond Quarkus defaults, no async processing, no message queues. Stateful 3rd-party mechanisms (git, docker, mvn, etc.) that share mutable state on the host must use global synchronized locks to prevent collisions.
 - **Rate limiting** — no throttling, no quota management
 - **Audit logging** — no structured audit trail beyond what the shell tools naturally produce
 

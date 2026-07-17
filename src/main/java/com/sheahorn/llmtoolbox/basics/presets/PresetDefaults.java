@@ -18,12 +18,17 @@ public class PresetDefaults {
             Map.entry("net", "net_*"),
             Map.entry("host", "host_*"),
             Map.entry("build", "build_*"),
+            Map.entry("mvn", "build_mvn_*"),
+            Map.entry("maven", "build_mvn_*"),
+            Map.entry("devops", "devops_*"),
             Map.entry("communication", "communication_*"),
             Map.entry("basics", "memory_*,notes_*,clipboard_*"),
             Map.entry("current_time", "time_now"),
             Map.entry("presets", "presets_*"),
             Map.entry("terminal", "terminal_*"),
-            Map.entry("calculator", "calculator_*")
+            Map.entry("calculator", "calculator_*"),
+            Map.entry("git", "devops_git_*"),
+            Map.entry("docker", "devops_docker_*")
     );
 
     /** Composite presets — seeded into DB on first boot. */
@@ -40,7 +45,8 @@ public class PresetDefaults {
                     "fs_ls_flat,fs_ls_recursive," +
                     "build_mvn_compile,build_mvn_test,build_mvn_test_one"),
             Map.entry("host_ctl", "host_audio_*,host_power_*,host_monitor_*"),
-            Map.entry("host_info", "host_hardware_*,host_netinfo_*,host_sysinfo_*,host_services_*,host_logs_*")
+            Map.entry("host_info", "host_hardware_*,host_netinfo_*,host_sysinfo_*,host_services_*,host_logs_*"),
+            Map.entry("devops", "devops_*")
     );
 
     void init(@Observes StartupEvent event) {

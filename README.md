@@ -81,7 +81,11 @@ ping, dig (A, AAAA, CNAME, MX, TXT, NS, SOA, SRV, CAA, and more), curl (HTTPS-on
 
 ### Build Tools (`build_*`)
 
-Maven operations scoped to a project path inside the allowed root: clean, compile, test, test-one (single test class), verify, package, package-skip-tests, dependency:tree, help:effective-pom, help:effective-settings, versions:display-dependency-updates. Supports `-o` (offline), `-P` (profile), and `-DskipTests` flags. A global lock synchronizes all Maven invocations to prevent concurrent build corruption.
+**Maven** — operations scoped to a project path inside the allowed root: clean, compile, test, test-one (single test class), verify, package, package-skip-tests, dependency:tree, help:effective-pom, help:effective-settings, versions:display-dependency-updates. Supports `-o` (offline), `-P` (profile), and `-DskipTests` flags. A global lock synchronizes all Maven invocations to prevent concurrent build corruption.
+
+**Git** — operations scoped to a repo path inside the allowed root: status, log, diff, diff-staged, add, commit, push, pull, branch, clone, stash, tag. A global lock serializes all Git invocations to prevent concurrent repo corruption.
+
+**Docker** — container and image management: ps, images, logs, run, stop, start, rm, rmi, pull, build, exec, inspect, compose up/down. A global lock serializes all Docker invocations to prevent concurrent state corruption.
 
 ### Basics (`time_now`, `memory_*`, `notes_*`, `clipboard_*`, `presets_*`)
 
@@ -151,6 +155,8 @@ Some tools shell out to system commands. The table below lists what each tool ca
 | `host_hardware_nvidia_smi` | `nvidia-smi` | nvidia-utils |
 | `host_netinfo_whois` | `whois` | whois |
 | `build_mvn_*` | `mvn` | maven |
+| `build_git_*` | `git` | git |
+| `build_docker_*` | `docker` | docker.io / docker-ce |
 
 Everything else (`find`, `head`, `tail`, `df`, `du`, `ls`, `cat`, `hostname`, `free`, `uptime`, `who`, `ps`, `top`, `ss`, `ip`, `systemctl`, `journalctl`, `dmesg`, `lscpu`, `lsmem`) is part of coreutils, procps, iproute2, util-linux, or systemd — present on any typical Linux host.
 

@@ -1,4 +1,4 @@
-QUARKUS_CONFIG_LOCATIONS=minimal.application.properties java -jar target/llmtoolbox-1.3.0-runner.jar
+QUARKUS_CONFIG_LOCATIONS=minimal.application.properties java -jar target/llmtoolbox-1.4.0-runner.jar
 
 # run in screen
 # honestly, screen is prefered over a docker; this is a host controlling tool with only few reasons to contenerize it.
