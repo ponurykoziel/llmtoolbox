@@ -1,4 +1,4 @@
-package com.sheahorn.llmtoolbox.buildtools.mvn;
+package com.sheahorn.llmtoolbox.buildtools.git;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -6,7 +6,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import java.time.Instant;
 
 @ApplicationScoped
-public class MvnLockService {
+public class GitLockService {
 
     @ConfigProperty(name = "llmtoolbox.build.lock-mode", defaultValue = "synchronize")
     String mode;
@@ -20,7 +20,7 @@ public class MvnLockService {
         if ("reject".equalsIgnoreCase(mode)) {
             synchronized (monitor) {
                 if (locked) {
-                    throw new IllegalStateException("mvn is busy — lock held since " + since);
+                    throw new IllegalStateException("git is busy — lock held since " + since);
                 }
                 locked = true;
                 since = Instant.now();
