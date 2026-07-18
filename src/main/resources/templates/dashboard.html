@@ -49,6 +49,20 @@
         </div>
     </div>
 
+    <div class="card" style="margin-bottom: 24px;">
+        <div class="card-body">
+            <h2>In-Flight Calls</h2>
+            <div id="inflight-status" class="status-box">Loading&hellip;</div>
+        </div>
+    </div>
+
+    <div class="card" style="margin-bottom: 24px;">
+        <div class="card-body">
+            <h2>Recent Tool Calls</h2>
+            <div id="history-status" class="status-box">Loading&hellip;</div>
+        </div>
+    </div>
+
     <script>
     function esc(s) { return s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; }
 
@@ -64,6 +78,14 @@
         return h + 'h ' + (m % 60) + 'm ago';
     }
 
+    function msLabel(ms) {
+        if (ms < 1000) return ms + 'ms';
+        if (ms < 60000) return (ms / 1000).toFixed(1) + 's';
+        var m = Math.floor(ms / 60000);
+        var s = Math.floor((ms % 60000) / 1000);
+        return m + 'm ' + s + 's';
+    }
+
     function lockIcon(locked) {
         return locked ? '&#128274;' : '&#128275;';
     }
@@ -74,6 +96,13 @@
 
     function lockLabel(locked) {
         return locked ? 'LOCKED' : 'free';
+    }
+
+    function toolPill(tool) {
+        if (tool === 'mvn') return 'pill-normal';
+        if (tool === 'git') return 'pill-doing';
+        if (tool === 'docker') return 'pill-high';
+        return 'pill-todo';
     }
 
     async function refresh() {
@@ -88,7 +117,11 @@
             var presets = presetsRes.ok ? await presetsRes.json() : [];
             var builtins = builtinRes.ok ? await builtinRes.json() : [];
             var customs = customRes.ok ? await customRes.json() : [];
-            var locks = locksRes.ok ? await locksRes.json() : {};
+            var locksData = locksRes.ok ? await locksRes.json() : {};
+            var locks = locksData.locks || {};
+            var lockMode = locksData.mode || 'synchronize';
+            var inFlight = locksData.inFlight || [];
+            var history = locksData.history || [];
 
             document.getElementById('preset-count').textContent = presets.length;
             document.getElementById('function-count').textContent = builtins.length + customs.length;
@@ -107,7 +140,12 @@
 
             // ── locks ──────────────────────────────────────────
             var lockNames = ['mvn', 'git', 'docker'];
-            var locksHtml = '<div class="grid grid-3" style="gap:12px;">';
+            var modePill = lockMode === 'reject' ? 'pill-high' : 'pill-normal';
+            var locksHtml = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">'
+                + '<span class="muted small">Mode</span>'
+                + '<span class="pill ' + modePill + '">' + esc(lockMode) + '</span>'
+                + '</div>'
+                + '<div class="grid grid-3" style="gap:12px;">';
             for (var i = 0; i < lockNames.length; i++) {
                 var name = lockNames[i];
                 var info = locks[name] || {locked: false, since: null, operation: null};
@@ -122,6 +160,45 @@
             }
             locksHtml += '</div>';
             document.getElementById('locks-status').innerHTML = locksHtml;
+
+            // ── in-flight ──────────────────────────────────────
+            if (inFlight.length === 0) {
+                document.getElementById('inflight-status').innerHTML = '<div class="muted">No calls in progress</div>';
+            } else {
+                var inflightHtml = '<div class="stack" style="gap:8px;">';
+                for (var j = 0; j < inFlight.length; j++) {
+                    var f = inFlight[j];
+                    inflightHtml += '<div style="display:flex;align-items:center;gap:10px;background:var(--panel-2);border-radius:8px;padding:10px 14px;">'
+                        + '<span class="pill ' + toolPill(f.tool) + '">' + esc(f.tool) + '</span>'
+                        + '<span style="flex:1;font-size:14px;">' + esc(f.operationId) + '</span>'
+                        + '<span class="muted small">' + esc(ago(f.startedAt)) + '</span>'
+                        + '<span style="color:var(--doing);font-size:20px;">&#x23F3;</span>'
+                        + '</div>';
+                }
+                inflightHtml += '</div>';
+                document.getElementById('inflight-status').innerHTML = inflightHtml;
+            }
+
+            // ── history ───────────────────────────────────────
+            if (history.length === 0) {
+                document.getElementById('history-status').innerHTML = '<div class="muted">No calls yet</div>';
+            } else {
+                var histHtml = '<div class="stack" style="gap:6px;">';
+                for (var k = 0; k < history.length; k++) {
+                    var h = history[k];
+                    var statusIcon = h.success ? '&#x2705;' : '&#x274C;';
+                    var statusColor = h.success ? 'var(--success)' : 'var(--danger)';
+                    histHtml += '<div style="display:flex;align-items:center;gap:10px;background:var(--panel-2);border-radius:8px;padding:8px 14px;">'
+                        + '<span class="pill ' + toolPill(h.tool) + '">' + esc(h.tool) + '</span>'
+                        + '<span style="flex:1;font-size:13px;">' + esc(h.operationId) + '</span>'
+                        + '<span class="muted small" style="min-width:55px;text-align:right;">' + esc(msLabel(h.durationMs)) + '</span>'
+                        + '<span style="color:' + statusColor + ';font-size:14px;">' + statusIcon + '</span>'
+                        + '<span class="muted small" style="min-width:70px;text-align:right;">' + esc(ago(h.startedAt)) + '</span>'
+                        + '</div>';
+                }
+                histHtml += '</div>';
+                document.getElementById('history-status').innerHTML = histHtml;
+            }
 
         } catch(e) {
             console.error('Dashboard refresh failed', e);

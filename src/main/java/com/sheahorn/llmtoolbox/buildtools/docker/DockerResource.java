@@ -1,5 +1,6 @@
 package com.sheahorn.llmtoolbox.buildtools.docker;
 
+import com.sheahorn.llmtoolbox.buildtools.LogToolCall;
 import com.sheahorn.llmtoolbox.execution.ExecutionResponse;
 import com.sheahorn.llmtoolbox.execution.Executor;
 import com.sheahorn.llmtoolbox.execution.ToolSupport;
@@ -11,6 +12,7 @@ import org.eclipse.microprofile.openapi.annotations.Operation;
 @Path("/api/tools/devops/docker")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
+@LogToolCall
 public class DockerResource {
 
     @Inject
@@ -260,18 +262,6 @@ public class DockerResource {
         return run("docker pull " + ToolSupport.shellQuote(request.image));
     }
 
-    @Operation(
-            operationId = "devops_docker_image_push",
-            summary = "Runs `docker push <image>`"
-    )
-    @POST
-    @Path("/image-push")
-    public ExecutionResponse imagePush(DockerImageRequest request) throws Exception {
-        if (request == null || request.image == null || request.image.isBlank()) {
-            throw new IllegalArgumentException("image is required");
-        }
-        return run("docker push " + ToolSupport.shellQuote(request.image));
-    }
 
     @Operation(
             operationId = "devops_docker_image_remove",
@@ -293,7 +283,7 @@ public class DockerResource {
     @POST
     @Path("/image-prune-all")
     public ExecutionResponse imagePruneAll(DockerEmptyRequest request) throws Exception {
-        return run("docker image prune -a");
+        return run("docker image prune -a -f");
     }
 
     // ── networks ─────────────────────────────────────────────
@@ -384,7 +374,9 @@ public class DockerResource {
         if (request == null || request.name == null || request.name.isBlank()) {
             throw new IllegalArgumentException("name (tag) is required");
         }
-        return run("docker build -t " + ToolSupport.shellQuote(request.name) + " .");
+        String path = (request.path != null && !request.path.isBlank()) ? request.path : ".";
+        return run("cd -- " + ToolSupport.shellQuote(path)
+                + " && docker build -t " + ToolSupport.shellQuote(request.name) + " .");
     }
 
     @Operation(
@@ -402,7 +394,7 @@ public class DockerResource {
 
     @Operation(
             operationId = "devops_docker_exec",
-            summary = "Runs `docker exec <container> <command>` — container and command required"
+            summary = "Runs `docker exec <container> <cmd...>` — container and cmd array required"
     )
     @POST
     @Path("/exec")
@@ -410,11 +402,80 @@ public class DockerResource {
         if (request == null || request.container == null || request.container.isBlank()) {
             throw new IllegalArgumentException("container is required");
         }
-        if (request.command == null || request.command.isBlank()) {
-            throw new IllegalArgumentException("command is required");
+        if (request.cmd == null || request.cmd.isEmpty()) {
+            throw new IllegalArgumentException("cmd is required and must be non-empty");
         }
-        return run("docker exec " + ToolSupport.shellQuote(request.container)
-                + " " + request.command);
+        StringBuilder cmd = new StringBuilder("docker exec ")
+                .append(ToolSupport.shellQuote(request.container));
+        for (String arg : request.cmd) {
+            cmd.append(" ").append(ToolSupport.shellQuote(arg));
+        }
+        return run(cmd.toString());
+    }
+
+    // ── run ──────────────────────────────────────────────────
+
+    @Operation(
+            operationId = "devops_docker_run",
+            summary = "Runs `docker run -d --name <name> [--network <network>] [-v ...] [-p ...] [-e ...] <image> [cmd...]` — image, name, and path required"
+    )
+    @POST
+    @Path("/run")
+    public ExecutionResponse run(DockerRunRequest request) throws Exception {
+        if (request == null || request.image == null || request.image.isBlank()) {
+            throw new IllegalArgumentException("image is required");
+        }
+        if (request.name == null || request.name.isBlank()) {
+            throw new IllegalArgumentException("name (container name) is required");
+        }
+        if (request.path == null || request.path.isBlank()) {
+            throw new IllegalArgumentException("path is required");
+        }
+
+        StringBuilder cmd = new StringBuilder();
+        cmd.append("cd -- ").append(ToolSupport.shellQuote(request.path)).append(" && ");
+        cmd.append("docker run -d --name ").append(ToolSupport.shellQuote(request.name));
+
+        if (request.network != null && !request.network.isBlank()) {
+            cmd.append(" --network ").append(ToolSupport.shellQuote(request.network));
+        }
+
+        if (request.volumes != null) {
+            for (var entry : request.volumes.entrySet()) {
+                cmd.append(" -v ")
+                        .append(ToolSupport.shellQuote(entry.getKey()))
+                        .append(":")
+                        .append(ToolSupport.shellQuote(entry.getValue()));
+            }
+        }
+
+        if (request.ports != null) {
+            for (var entry : request.ports.entrySet()) {
+                cmd.append(" -p ")
+                        .append(ToolSupport.shellQuote(entry.getKey()))
+                        .append(":")
+                        .append(ToolSupport.shellQuote(entry.getValue()));
+            }
+        }
+
+        if (request.envs != null) {
+            for (var entry : request.envs.entrySet()) {
+                cmd.append(" -e ")
+                        .append(ToolSupport.shellQuote(entry.getKey()))
+                        .append("=")
+                        .append(ToolSupport.shellQuote(entry.getValue()));
+            }
+        }
+
+        cmd.append(" ").append(ToolSupport.shellQuote(request.image));
+
+        if (request.cmd != null && !request.cmd.isEmpty()) {
+            for (String arg : request.cmd) {
+                cmd.append(" ").append(ToolSupport.shellQuote(arg));
+            }
+        }
+
+        return run(cmd.toString());
     }
 
     // ── compose ──────────────────────────────────────────────
@@ -524,7 +585,11 @@ public class DockerResource {
     // ── helpers ──────────────────────────────────────────────
 
     private StringBuilder composeBase(DockerComposeRequest request) {
-        StringBuilder cmd = new StringBuilder("docker compose");
+        StringBuilder cmd = new StringBuilder();
+        if (request != null && request.path != null && !request.path.isBlank()) {
+            cmd.append("cd -- ").append(ToolSupport.shellQuote(request.path)).append(" && ");
+        }
+        cmd.append("docker-compose");
         if (request != null && request.composeFile != null && !request.composeFile.isBlank()) {
             cmd.append(" -f ").append(ToolSupport.shellQuote(request.composeFile));
         }

@@ -1,5 +1,6 @@
 package com.sheahorn.llmtoolbox.buildtools.git;
 
+import com.sheahorn.llmtoolbox.buildtools.LogToolCall;
 import com.sheahorn.llmtoolbox.execution.ExecutionResponse;
 import com.sheahorn.llmtoolbox.execution.Executor;
 import com.sheahorn.llmtoolbox.execution.ToolSupport;
@@ -12,6 +13,7 @@ import org.eclipse.microprofile.openapi.annotations.Operation;
 @Path("/api/tools/devops/git")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
+@LogToolCall
 public class GitResource extends FsResourceSupport {
 
     @Inject

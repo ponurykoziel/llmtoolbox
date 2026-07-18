@@ -27,12 +27,27 @@ public class LockStatusResource {
     @Inject
     DockerLockService dockerLock;
 
+    @Inject
+    ToolCallInFlightService inFlightService;
+
+    @Inject
+    ToolCallHistoryService history;
+
     @Operation(
             operationId = "build_locks_status",
-            summary = "Returns the current lock state for mvn, git, and docker"
+            summary = "Returns the current lock state for mvn, git, and docker, plus in-flight calls and recent history"
     )
     @GET
-    public Map<String, LockInfo> status() {
+    public Map<String, Object> status() {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("mode", mvnLock.getMode());
+        result.put("locks", locks());
+        result.put("inFlight", inFlightService.getAll().values());
+        result.put("history", history.recent(20));
+        return result;
+    }
+
+    private Map<String, LockInfo> locks() {
         Map<String, LockInfo> result = new LinkedHashMap<>();
         result.put("mvn", toInfo(mvnLock));
         result.put("git", toInfo(gitLock));
