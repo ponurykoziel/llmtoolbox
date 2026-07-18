@@ -347,7 +347,7 @@ public class GitResource extends FsResourceSupport {
     }
 
     // ── merge ────────────────────────────────────────────────
-    // MAIN VERSION — conflicting
+    // BRANCH VERSION — merge-test-2
 
     @Operation(
             operationId = "devops_git_merge",
