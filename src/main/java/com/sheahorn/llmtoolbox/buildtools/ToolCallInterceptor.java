@@ -48,6 +48,7 @@ public class ToolCallInterceptor {
     private String toolFromOperationId(String opId) {
         if (opId == null) return "unknown";
         if (opId.startsWith("build_mvn_")) return "mvn";
+        if (opId.startsWith("build_gradle_")) return "gradle";
         if (opId.startsWith("devops_git_")) return "git";
         if (opId.startsWith("devops_docker_")) return "docker";
         return "other";

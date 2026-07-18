@@ -2,6 +2,7 @@ package com.sheahorn.llmtoolbox.buildtools;
 
 import com.sheahorn.llmtoolbox.buildtools.docker.DockerLockService;
 import com.sheahorn.llmtoolbox.buildtools.git.GitLockService;
+import com.sheahorn.llmtoolbox.buildtools.gradle.GradleLockService;
 import com.sheahorn.llmtoolbox.buildtools.mvn.MvnLockService;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
@@ -22,6 +23,9 @@ public class LockStatusResource {
     MvnLockService mvnLock;
 
     @Inject
+    GradleLockService gradleLock;
+
+    @Inject
     GitLockService gitLock;
 
     @Inject
@@ -35,7 +39,7 @@ public class LockStatusResource {
 
     @Operation(
             operationId = "build_locks_status",
-            summary = "Returns the current lock state for mvn, git, and docker, plus in-flight calls and recent history"
+            summary = "Returns the current lock state for mvn, gradle, git, and docker, plus in-flight calls and recent history"
     )
     @GET
     public Map<String, Object> status() {
@@ -50,6 +54,7 @@ public class LockStatusResource {
     private Map<String, LockInfo> locks() {
         Map<String, LockInfo> result = new LinkedHashMap<>();
         result.put("mvn", toInfo(mvnLock));
+        result.put("gradle", toInfo(gradleLock));
         result.put("git", toInfo(gitLock));
         result.put("docker", toInfo(dockerLock));
         return result;

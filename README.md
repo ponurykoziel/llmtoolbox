@@ -83,7 +83,11 @@ ping, dig (A, AAAA, CNAME, MX, TXT, NS, SOA, SRV, CAA, and more), curl (HTTPS-on
 
 **Maven** — operations scoped to a project path inside the allowed root: clean, compile, test, test-one (single test class), verify, package, package-skip-tests, dependency:tree, help:effective-pom, help:effective-settings, versions:display-dependency-updates. Supports `-o` (offline), `-P` (profile), and `-DskipTests` flags. A global lock synchronizes all Maven invocations to prevent concurrent build corruption.
 
+**Gradle** — operations scoped to a project path inside the allowed root: clean, compile, test, test-one (single test class), check, build, build-skip-tests, dependencies, properties, buildEnvironment, dependencyUpdates. Supports `--offline`, `-P` (project property), and `-x test` (skip tests) flags. A global lock synchronizes all Gradle invocations to prevent concurrent build corruption.
+
 **Git** — operations scoped to a repo path inside the allowed root: status, log, diff, diff-staged, add, commit, push, pull, branch, clone, stash, tag. A global lock serializes all Git invocations to prevent concurrent repo corruption.
+
+**CMake** — operations scoped to source and build paths inside the allowed root: configure (with -D defines and build type), build (with --target, --clean-first, -j, --verbose), and read-cache (parses CMakeCache.txt for key variables). A global lock serializes all CMake invocations.
 
 **Docker** — container and image management: ps, images, logs, run, stop, start, rm, rmi, pull, build, exec, inspect, compose up/down. A global lock serializes all Docker invocations to prevent concurrent state corruption.
 
@@ -155,6 +159,8 @@ Some tools shell out to system commands. The table below lists what each tool ca
 | `host_hardware_nvidia_smi` | `nvidia-smi` | nvidia-utils |
 | `host_netinfo_whois` | `whois` | whois |
 | `build_mvn_*` | `mvn` | maven |
+| `build_gradle_*` | `gradle` | gradle |
+| `build_cmake_*` | `cmake` | cmake |
 | `build_git_*` | `git` | git |
 | `build_docker_*` | `docker` | docker.io / docker-ce |
 
@@ -184,6 +190,11 @@ Comma-separated operationIds or prefixes with `*` wildcards. Examples:
 - `fs_*` — all filesystem tools
 - `fs_files_read,fs_files_create,net_ping` — exact operationIds
 - `host_audio_*,host_power_*` — audio and power tools
+
+## Changelog
+
+- **1.5** — Added Gradle support (`build_gradle_*`): clean, compile, test, test-one, check, build, build-skip-tests, dependencies, properties, buildEnvironment, dependencyUpdates.
+- **1.4** — Added Git support (`build_git_*`), Docker support (`build_docker_*`), and CMake support (`build_cmake_*`). Added tool call history and in-flight tracking with lock status endpoint.
 
 ## Wiring it up 
 
