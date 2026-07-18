@@ -4,7 +4,7 @@
 <body>
 <div id="page-content">
     <h1 class="page-title">Dashboard</h1>
-    <p class="page-subtitle">Overview of your presets and functions</p>
+    <p class="page-subtitle">Overview of your presets, functions, and global locks</p>
 
     <div class="grid grid-2" style="margin-bottom: 24px;">
         <div class="card">
@@ -42,20 +42,53 @@
         </div>
     </div>
 
+    <div class="card" style="margin-bottom: 24px;">
+        <div class="card-body">
+            <h2>Global Locks</h2>
+            <div id="locks-status" class="status-box">Loading&hellip;</div>
+        </div>
+    </div>
+
     <script>
     function esc(s) { return s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; }
 
+    function ago(since) {
+        if (!since) return '';
+        var ms = Date.now() - new Date(since).getTime();
+        if (ms < 1000) return 'just now';
+        var s = Math.floor(ms / 1000);
+        if (s < 60) return s + 's ago';
+        var m = Math.floor(s / 60);
+        if (m < 60) return m + 'm ago';
+        var h = Math.floor(m / 60);
+        return h + 'h ' + (m % 60) + 'm ago';
+    }
+
+    function lockIcon(locked) {
+        return locked ? '&#128274;' : '&#128275;';
+    }
+
+    function lockPill(locked) {
+        return locked ? 'pill-doing' : 'pill-done';
+    }
+
+    function lockLabel(locked) {
+        return locked ? 'LOCKED' : 'free';
+    }
+
     async function refresh() {
         try {
-            var [presetsRes, builtinRes, customRes] = await Promise.all([
+            var [presetsRes, builtinRes, customRes, locksRes] = await Promise.all([
                 fetch('/api/tools/basics/presets/all'),
                 fetch('/api/functions/builtin'),
-                fetch('/api/tools/functions').catch(function() { return {ok: false}; })
+                fetch('/api/tools/functions').catch(function() { return {ok: false}; }),
+                fetch('/api/tools/build/locks').catch(function() { return {ok: false}; })
             ]);
 
             var presets = presetsRes.ok ? await presetsRes.json() : [];
             var builtins = builtinRes.ok ? await builtinRes.json() : [];
             var customs = customRes.ok ? await customRes.json() : [];
+            var locks = locksRes.ok ? await locksRes.json() : {};
 
             document.getElementById('preset-count').textContent = presets.length;
             document.getElementById('function-count').textContent = builtins.length + customs.length;
@@ -71,12 +104,34 @@
                 + '</div>'
                 + '</div>';
             document.getElementById('functions-breakdown').innerHTML = breakdownHtml;
+
+            // ── locks ──────────────────────────────────────────
+            var lockNames = ['mvn', 'git', 'docker'];
+            var locksHtml = '<div class="grid grid-3" style="gap:12px;">';
+            for (var i = 0; i < lockNames.length; i++) {
+                var name = lockNames[i];
+                var info = locks[name] || {locked: false, since: null, operation: null};
+                locksHtml += '<div style="background:var(--panel-2);border-radius:8px;padding:12px 14px;text-align:center;">'
+                    + '<div style="font-size:24px;margin-bottom:4px;">' + lockIcon(info.locked) + '</div>'
+                    + '<div style="font-weight:700;font-size:15px;text-transform:uppercase;">' + esc(name) + '</div>'
+                    + '<div><span class="pill ' + lockPill(info.locked) + '" style="margin-top:6px;">' + lockLabel(info.locked) + '</span></div>';
+                if (info.locked && info.since) {
+                    locksHtml += '<div class="muted small" style="margin-top:4px;">' + esc(ago(info.since)) + '</div>';
+                }
+                locksHtml += '</div>';
+            }
+            locksHtml += '</div>';
+            document.getElementById('locks-status').innerHTML = locksHtml;
+
         } catch(e) {
             console.error('Dashboard refresh failed', e);
         }
     }
 
-    document.addEventListener('DOMContentLoaded', refresh);
+    document.addEventListener('DOMContentLoaded', function() {
+        refresh();
+        setInterval(refresh, 5000);
+    });
     </script>
 
 </div>
