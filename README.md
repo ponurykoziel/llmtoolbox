@@ -193,6 +193,7 @@ Comma-separated operationIds or prefixes with `*` wildcards. Examples:
 
 ## Changelog
 
+- **1.5.1** — Fixed a bug in filesystem path validation where accessing the allowed root itself (e.g. `fs_ls_flat` on `/workzone/angelica`) would fail with a 500 because the parent-of-root real-path check incorrectly treated the root as out-of-bounds. Improved error messages to include the actual path and allowed root. Test configuration hardened (random port, proactive auth disabled, JDBC realm properly wired).
 - **1.5** — Added Gradle support (`build_gradle_*`): clean, compile, test, test-one, check, build, build-skip-tests, dependencies, properties, buildEnvironment, dependencyUpdates.
 - **1.4** — Added Git support (`build_git_*`), Docker support (`build_docker_*`), and CMake support (`build_cmake_*`). Added tool call history and in-flight tracking with lock status endpoint.
 

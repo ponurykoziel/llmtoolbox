@@ -33,18 +33,26 @@ public abstract class FsResourceSupport {
         path = path.toAbsolutePath().normalize();
 
         if (!path.startsWith(root)) {
-            throw new IllegalArgumentException("path is outside allowed root");
+            throw new IllegalArgumentException(
+                "path is outside allowed root: allowed root=" + root + ", actual path=" + path);
         }
 
         // Real-path parent check — defeats symlink escapes
         // (e.g. /opt/app/link -> /etc, then /opt/app/link/passwd)
+        // When the path IS the root itself, the parent is outside the root
+        // by definition, so we only check the parent when path != root.
         try {
             Path rootReal = root.toRealPath();
-            Path parent = path.getParent();
-            Path parentReal = (parent == null) ? rootReal : parent.toRealPath();
+            Path pathReal = path.toRealPath();
 
-            if (!parentReal.startsWith(rootReal)) {
-                throw new IllegalArgumentException("path parent is outside allowed root");
+            if (!pathReal.equals(rootReal)) {
+                Path parent = path.getParent();
+                Path parentReal = (parent == null) ? rootReal : parent.toRealPath();
+
+                if (!parentReal.startsWith(rootReal)) {
+                    throw new IllegalArgumentException(
+                        "path parent is outside allowed root: allowed root=" + rootReal + ", actual parent=" + parentReal);
+                }
             }
         } catch (IOException e) {
             throw new IllegalArgumentException("cannot resolve path: " + e.getMessage());
