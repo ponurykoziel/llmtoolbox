@@ -37,16 +37,12 @@
     <h2 class="section-title">Test Execution</h2>
     <div class="card" style="margin-bottom:24px;">
         <div class="card-body">
-            <p class="muted small" style="margin-bottom:12px;">Run this function with test input to verify it works.</p>
-            <div class="form-group" style="margin-bottom:10px;">
-                <label>Test Input (JSON)</label>
-                <textarea id="test-input" placeholder='{"key": "value"}' rows="3" style="font-family:monospace;"></textarea>
-            </div>
+            <p class="muted small" style="margin-bottom:12px;">Run this function to test its shell command.</p>
             <button id="run-test-btn" class="btn btn-primary">Run Test</button>
             <div id="test-status" class="status-box" style="margin-top:12px;"></div>
             <div id="test-output" style="display:none;margin-top:12px;">
                 <div class="form-group">
-                    <label>Output</label>
+                    <label>Stdout</label>
                     <pre id="test-stdout" style="background:#0c1016;border:1px solid var(--border);border-radius:8px;padding:12px;font-family:monospace;font-size:13px;color:var(--accent-2);max-height:300px;overflow-y:auto;white-space:pre-wrap;"></pre>
                 </div>
                 <div class="form-group" style="margin-top:8px;">
@@ -57,6 +53,10 @@
                     <span class="detail-label">Exit Code:</span>
                     <span id="test-exitcode" class="detail-value" style="display:inline;margin-left:8px;">—</span>
                 </div>
+                <div style="margin-top:4px;">
+                    <span class="detail-label">Duration:</span>
+                    <span id="test-duration" class="detail-value" style="display:inline;margin-left:8px;">—</span>
+                </div>
             </div>
         </div>
     </div>
@@ -65,11 +65,6 @@
     var functionId = /*[[${functionId}]]*/ '';
 
     function esc(s) { return s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; }
-
-    function statusPill(status) {
-        var cls = 'pill pill-' + (status || 'todo').toLowerCase();
-        return '<span class="' + cls + '">' + esc(status || 'draft') + '</span>';
-    }
 
     var currentFunction = null;
 
@@ -94,62 +89,28 @@
                 + '<button id="cancel-opid-btn" class="btn btn-small" style="display:none;">Cancel</button>'
                 + '<button id="edit-opid-btn" class="edit-icon-btn" title="Edit operation ID">&#9998;</button>'
                 + '</div></div>'
-                + '<div><span class="detail-label">Target Language</span>'
+                + '<div><span class="detail-label">Description</span>'
                 + '<div class="detail-value" style="display:flex;align-items:center;gap:8px;">'
-                + '<span id="display-lang">' + esc(f.targetLanguage || '&mdash;') + '</span>'
-                + '<select id="edit-lang" style="display:none;font-size:14px;padding:4px 8px;">'
-                + '<option value="python">Python</option>'
-                + '<option value="javascript">JavaScript</option>'
-                + '<option value="bash">Bash</option>'
-                + '<option value="other">Other</option>'
-                + '</select>'
-                + '<button id="save-lang-btn" class="btn btn-small btn-primary" style="display:none;">Save</button>'
-                + '<button id="cancel-lang-btn" class="btn btn-small" style="display:none;">Cancel</button>'
-                + '<button id="edit-lang-btn" class="edit-icon-btn" title="Edit language">&#9998;</button>'
+                + '<span id="display-desc">' + esc(f.description || '&mdash;') + '</span>'
+                + '<input id="edit-desc" type="text" value="' + esc(f.description || '') + '" style="display:none;flex:1;padding:4px 8px;font-size:14px;">'
+                + '<button id="save-desc-btn" class="btn btn-small btn-primary" style="display:none;">Save</button>'
+                + '<button id="cancel-desc-btn" class="btn btn-small" style="display:none;">Cancel</button>'
+                + '<button id="edit-desc-btn" class="edit-icon-btn" title="Edit description">&#9998;</button>'
                 + '</div></div>'
-                + '<div><span class="detail-label">Status</span><div class="detail-value">' + statusPill(f.status || 'draft') + '</div></div>'
-                + '<div><span class="detail-label">Input Schema</span>'
+                + '<div><span class="detail-label">Shell Command</span>'
                 + '<div class="detail-value" style="display:flex;align-items:flex-start;gap:8px;">'
-                + '<pre id="display-input" style="white-space:pre-wrap;margin:0;font-family:monospace;font-size:13px;color:var(--muted);">' + esc(f.input || '&mdash;') + '</pre>'
-                + '<textarea id="edit-input" style="display:none;flex:1;padding:4px 8px;font-size:13px;min-height:80px;resize:vertical;font-family:monospace;">' + esc(f.input || '') + '</textarea>'
-                + '<button id="save-input-btn" class="btn btn-small btn-primary" style="display:none;">Save</button>'
-                + '<button id="cancel-input-btn" class="btn btn-small" style="display:none;">Cancel</button>'
-                + '<button id="edit-input-btn" class="edit-icon-btn" title="Edit input schema">&#9998;</button>'
-                + '</div></div>'
-                + '<div><span class="detail-label">Output Schema</span>'
-                + '<div class="detail-value" style="display:flex;align-items:flex-start;gap:8px;">'
-                + '<pre id="display-output" style="white-space:pre-wrap;margin:0;font-family:monospace;font-size:13px;color:var(--muted);">' + esc(f.output || '&mdash;') + '</pre>'
-                + '<textarea id="edit-output" style="display:none;flex:1;padding:4px 8px;font-size:13px;min-height:80px;resize:vertical;font-family:monospace;">' + esc(f.output || '') + '</textarea>'
-                + '<button id="save-output-btn" class="btn btn-small btn-primary" style="display:none;">Save</button>'
-                + '<button id="cancel-output-btn" class="btn btn-small" style="display:none;">Cancel</button>'
-                + '<button id="edit-output-btn" class="edit-icon-btn" title="Edit output schema">&#9998;</button>'
-                + '</div></div>'
-                + '<div><span class="detail-label">Implementation</span>'
-                + '<div class="detail-value" style="display:flex;align-items:flex-start;gap:8px;">'
-                + '<pre id="display-impl" style="white-space:pre-wrap;margin:0;font-family:monospace;font-size:13px;color:var(--muted);">' + esc(f.implementation || '&mdash;') + '</pre>'
-                + '<textarea id="edit-impl" style="display:none;flex:1;padding:4px 8px;font-size:13px;min-height:120px;resize:vertical;font-family:monospace;">' + esc(f.implementation || '') + '</textarea>'
-                + '<button id="save-impl-btn" class="btn btn-small btn-primary" style="display:none;">Save</button>'
-                + '<button id="cancel-impl-btn" class="btn btn-small" style="display:none;">Cancel</button>'
-                + '<button id="edit-impl-btn" class="edit-icon-btn" title="Edit implementation">&#9998;</button>'
-                + '</div></div>'
-                + '<div><span class="detail-label">Harness</span>'
-                + '<div class="detail-value" style="display:flex;align-items:flex-start;gap:8px;">'
-                + '<pre id="display-harness" style="white-space:pre-wrap;margin:0;font-family:monospace;font-size:13px;color:var(--muted);">' + esc(f.harness || '&mdash;') + '</pre>'
-                + '<textarea id="edit-harness" style="display:none;flex:1;padding:4px 8px;font-size:13px;min-height:100px;resize:vertical;font-family:monospace;">' + esc(f.harness || '') + '</textarea>'
-                + '<button id="save-harness-btn" class="btn btn-small btn-primary" style="display:none;">Save</button>'
-                + '<button id="cancel-harness-btn" class="btn btn-small" style="display:none;">Cancel</button>'
-                + '<button id="edit-harness-btn" class="edit-icon-btn" title="Edit harness">&#9998;</button>'
+                + '<pre id="display-cmd" style="white-space:pre-wrap;margin:0;font-family:monospace;font-size:13px;color:var(--muted);">' + esc(f.shellCommand || '&mdash;') + '</pre>'
+                + '<textarea id="edit-cmd" style="display:none;flex:1;padding:4px 8px;font-size:13px;min-height:80px;resize:vertical;font-family:monospace;">' + esc(f.shellCommand || '') + '</textarea>'
+                + '<button id="save-cmd-btn" class="btn btn-small btn-primary" style="display:none;">Save</button>'
+                + '<button id="cancel-cmd-btn" class="btn btn-small" style="display:none;">Cancel</button>'
+                + '<button id="edit-cmd-btn" class="edit-icon-btn" title="Edit shell command">&#9998;</button>'
                 + '</div></div>';
             document.getElementById('function-info').innerHTML = infoHtml;
             document.getElementById('delete-btn').style.display = 'block';
 
-            // Wire up inline edits
             setupInlineEdit('opid', 'operationId');
-            setupInlineEdit('lang', 'targetLanguage');
-            setupInlineEdit('input', 'input');
-            setupInlineEdit('output', 'output');
-            setupInlineEdit('impl', 'implementation');
-            setupInlineEdit('harness', 'harness');
+            setupInlineEdit('desc', 'description');
+            setupInlineEdit('cmd', 'shellCommand');
 
         } catch(e) {
             document.getElementById('function-info').innerHTML = '<div class="muted">Error loading function</div>';
@@ -175,9 +136,6 @@
         });
 
         function cancelEdit() {
-            if (edit.tagName === 'TEXTAREA' || edit.tagName === 'SELECT') {
-                // restore from display
-            }
             edit.style.display = 'none';
             save.style.display = 'none';
             cancel.style.display = 'none';
@@ -187,7 +145,7 @@
         cancel.addEventListener('click', cancelEdit);
 
         save.addEventListener('click', async function() {
-            var newValue = edit.tagName === 'SELECT' ? edit.value : edit.value.trim();
+            var newValue = edit.value.trim();
             var body = {};
             body[apiField] = newValue || null;
             try {
@@ -238,19 +196,16 @@
         statusEl.textContent = 'Running…';
         outputDiv.style.display = 'none';
         try {
-            var testInput = document.getElementById('test-input').value.trim();
-            var body = { input: testInput ? JSON.parse(testInput) : {} };
             var res = await fetch('/api/tools/functions/' + encodeURIComponent(functionId) + '/execute', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(body)
+                method: 'POST'
             });
             if (res.ok) {
                 var result = await res.json();
                 statusEl.innerHTML = '<span class="pill pill-done">Executed</span>';
                 document.getElementById('test-stdout').textContent = result.stdout || '(no output)';
                 document.getElementById('test-stderr').textContent = result.stderr || '(no stderr)';
-                document.getElementById('test-exitcode').textContent = result.exitCode !== undefined ? result.exitCode : '—';
+                document.getElementById('test-exitcode').textContent = result.exitCode !== undefined && result.exitCode !== null ? result.exitCode : '—';
+                document.getElementById('test-duration').textContent = result.durationMs !== undefined ? result.durationMs + ' ms' : '—';
                 outputDiv.style.display = 'block';
             } else {
                 var err = await res.json();

@@ -12,7 +12,7 @@
     </div>
 
     <h1 class="page-title">Create Custom Function</h1>
-    <p class="page-subtitle">Define a new LLM tool function with implementation</p>
+    <p class="page-subtitle">Define a new shell-command tool function</p>
 
     <div class="card" style="margin-bottom:24px;">
         <div class="card-body">
@@ -23,33 +23,14 @@
                     <span class="muted small">Unique identifier for this function (used in OpenAPI spec).</span>
                 </div>
                 <div class="form-group">
-                    <label>Input Schema (JSON)</label>
-                    <textarea id="f-input" placeholder='{"type":"object","properties":{...}}' rows="4"></textarea>
-                    <span class="muted small">JSON Schema for the function's input parameters.</span>
+                    <label>Description</label>
+                    <input type="text" id="f-description" placeholder="What this function does">
+                    <span class="muted small">A short description shown to the LLM.</span>
                 </div>
                 <div class="form-group">
-                    <label>Output Schema (JSON)</label>
-                    <textarea id="f-output" placeholder='{"type":"object","properties":{...}}' rows="4"></textarea>
-                    <span class="muted small">JSON Schema for the function's return value.</span>
-                </div>
-                <div class="form-group" style="max-width:300px;">
-                    <label>Target Language</label>
-                    <select id="f-language">
-                        <option value="python">Python</option>
-                        <option value="javascript">JavaScript</option>
-                        <option value="bash">Bash</option>
-                        <option value="other">Other</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Implementation</label>
-                    <textarea id="f-implementation" placeholder="def run(input):&#10;    # your code here&#10;    return {'result': ...}" rows="8" style="font-family:monospace;"></textarea>
-                    <span class="muted small">The actual function code.</span>
-                </div>
-                <div class="form-group">
-                    <label>Harness</label>
-                    <textarea id="f-harness" placeholder="#!/usr/bin/env python3&#10;import json, sys&#10;# harness code" rows="6" style="font-family:monospace;"></textarea>
-                    <span class="muted small">Wrapper/harness code that invokes the implementation.</span>
+                    <label>Shell Command</label>
+                    <textarea id="f-shellCommand" placeholder="echo hello world" rows="4" style="font-family:monospace;" required></textarea>
+                    <span class="muted small">The shell command to execute. No parameters — just a fixed command.</span>
                 </div>
                 <div style="display:flex;align-items:center;gap:12px;">
                     <button type="submit" class="btn btn-primary">Create Function</button>
@@ -70,11 +51,8 @@
         try {
             var body = {
                 operationId: document.getElementById('f-operationId').value.trim(),
-                input: document.getElementById('f-input').value.trim() || null,
-                output: document.getElementById('f-output').value.trim() || null,
-                targetLanguage: document.getElementById('f-language').value,
-                implementation: document.getElementById('f-implementation').value.trim(),
-                harness: document.getElementById('f-harness').value.trim() || null
+                description: document.getElementById('f-description').value.trim() || null,
+                shellCommand: document.getElementById('f-shellCommand').value.trim()
             };
             var res = await fetch('/api/tools/functions', {
                 method: 'POST',
