@@ -10,10 +10,12 @@ import jakarta.ws.rs.core.Response;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import com.sheahorn.llmtoolbox.auth.NoBearerAuth;
 import com.sheahorn.llmtoolbox.basics.presets.PresetDefaults;
+import com.sheahorn.llmtoolbox.custom.CustomFunction;
 
 @Path("/api/openapi")
 @Produces(MediaType.APPLICATION_JSON)
@@ -78,7 +80,6 @@ public class OpenApiSubsetResource {
         Set<String> opIds = new LinkedHashSet<>();
         for (String p : prefixes) {
             if (p.equals("*")) {
-                // "all" preset — collect every operationId
                 collectAll(full, opIds);
             } else if (p.endsWith("*")) {
                 p = p.substring(0, p.length() - 1);
@@ -161,12 +162,67 @@ public class OpenApiSubsetResource {
                     if (is == null) continue;
                     String raw = new String(is.readAllBytes(), StandardCharsets.UTF_8);
                     cachedFull = MAPPER.readTree(raw);
+                    injectCustomFunctions((ObjectNode) cachedFull);
                     return cachedFull;
                 } catch (Exception e) {
                     // try next
                 }
             }
             return null;
+        }
+    }
+
+    /**
+     * Injects a synthetic POST operation for each custom function into the
+     * OpenAPI spec so they are discoverable via presets and selectors.
+     * Each custom function gets its own operationId and path:
+     *   POST /api/tools/functions/custom/{operationId}
+     */
+    private void injectCustomFunctions(ObjectNode spec) {
+        List<CustomFunction> functions;
+        try {
+            functions = CustomFunction.listAll();
+        } catch (Exception e) {
+            return; // DB not ready yet, skip
+        }
+
+        if (functions.isEmpty()) return;
+
+        ObjectNode paths = (ObjectNode) spec.get("paths");
+        if (paths == null) {
+            paths = MAPPER.createObjectNode();
+            spec.set("paths", paths);
+        }
+
+        for (CustomFunction f : functions) {
+            String pathUrl = "/api/tools/functions/custom/" + f.operationId;
+
+            ObjectNode op = MAPPER.createObjectNode();
+            op.put("operationId", f.operationId);
+            op.put("summary", f.description != null ? f.description : "Execute custom function: " + f.operationId);
+
+            // responses
+            ObjectNode responses = MAPPER.createObjectNode();
+            ObjectNode ok200 = MAPPER.createObjectNode();
+            ok200.put("description", "Execution result");
+            ObjectNode content = MAPPER.createObjectNode();
+            ObjectNode appJson = MAPPER.createObjectNode();
+            ObjectNode schema = MAPPER.createObjectNode();
+            schema.put("$ref", "#/components/schemas/ExecutionResponse");
+            appJson.set("schema", schema);
+            content.set("application/json", appJson);
+            ok200.set("content", content);
+            responses.set("200", ok200);
+            op.set("responses", responses);
+
+            // tags
+            ArrayNode tags = MAPPER.createArrayNode();
+            tags.add("Custom Functions");
+            op.set("tags", tags);
+
+            ObjectNode pathItem = MAPPER.createObjectNode();
+            pathItem.set("post", op);
+            paths.set(pathUrl, pathItem);
         }
     }
 

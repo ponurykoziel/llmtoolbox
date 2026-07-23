@@ -8,7 +8,7 @@
 
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
         <h2 style="margin:0;">All Functions</h2>
-        <!-- + New Function button intentionally removed -->
+        <a href="/ui/functions/new" class="btn btn-primary">+ New Function</a>
     </div>
 
     <div id="functions-list">Loading&hellip;</div>
@@ -46,11 +46,10 @@
                 var customFunctions = await customRes.json();
                 customFunctions.forEach(function(f) {
                     functions.push({
-                        operationId: f.operationId || f.id,
-                        description: f.input || '',
+                        operationId: f.operationId,
+                        description: f.description || '',
                         type: 'custom',
-                        id: f.id,
-                        targetLanguage: f.targetLanguage
+                        id: f.id
                     });
                 });
             }
