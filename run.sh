@@ -3,7 +3,7 @@ QUARKUS_CONFIG_LOCATIONS=minimal.application.properties java -jar target/llmtool
 # run in screen
 # honestly, screen is prefered over a docker; this is a host controlling tool with only few reasons to contenerize it.
 #
-# screen -dmS tools_for_my_llm sh -c 'QUARKUS_CONFIG_LOCATIONS=/absolute/path/application.properties java -jar /absolute/path/llmtoolbox-1.3.0-runner.jar'
+# screen -dmS tools_for_my_llm sh -c 'QUARKUS_CONFIG_LOCATIONS=/absolute/path/application.properties java -jar /absolute/path/llmtoolbox-1.6.0-runner.jar'
 #
 # note that cron can launch the jar on @reboot, but this will work mostly for headless runs.
 # if launched via cron, the jar will not reach your user's current session.
@@ -17,7 +17,7 @@ QUARKUS_CONFIG_LOCATIONS=minimal.application.properties java -jar target/llmtool
 # for a dockered run, you want something like:
 #
 # CONTAINER="llmtoolbox"
-# JARNAME="./target/llmtoolbox-1.3.0-runner.jar"
+# JARNAME="./target/llmtoolbox-1.6.0-runner.jar"
 #
 # docker stop ${CONTAINER}
 # docker rm ${CONTAINER}
