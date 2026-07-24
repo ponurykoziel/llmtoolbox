@@ -347,20 +347,66 @@ public class GitResource extends FsResourceSupport {
     }
 
     // ── merge ────────────────────────────────────────────────
-    // BRANCH VERSION — merge-test-2
 
     @Operation(
-            operationId = "devops_git_merge",
-            summary = "Runs `git merge <branch>` inside the repo path"
+            operationId = "devops_git_merge_perform_normal",
+            summary = "Runs `git merge <branch>` inside the repo path — preserves full history with a merge commit"
     )
     @POST
-    @Path("/merge")
-    public ExecutionResponse merge(GitBranchRequest request) throws Exception {
+    @Path("/merge-perform-normal")
+    public ExecutionResponse mergePerformNormal(GitBranchRequest request) throws Exception {
         validatePath(request.path);
         if (request.branch == null || request.branch.isBlank()) {
             throw new IllegalArgumentException("branch is required");
         }
         return runInRepo(request.path, "git merge " + ToolSupport.shellQuote(request.branch));
+    }
+
+    @Operation(
+            operationId = "devops_git_merge_perform_squash",
+            summary = "Runs `git merge --squash <branch>` inside the repo path — flattens branch into staged changes"
+    )
+    @POST
+    @Path("/merge-perform-squash")
+    public ExecutionResponse mergePerformSquash(GitBranchRequest request) throws Exception {
+        validatePath(request.path);
+        if (request.branch == null || request.branch.isBlank()) {
+            throw new IllegalArgumentException("branch is required");
+        }
+        return runInRepo(request.path, "git merge --squash " + ToolSupport.shellQuote(request.branch));
+    }
+
+    @Operation(
+            operationId = "devops_git_merge_abort",
+            summary = "Runs `git merge --abort` inside the repo path — cancels a merge in progress"
+    )
+    @POST
+    @Path("/merge-abort")
+    public ExecutionResponse mergeAbort(GitPathRequest request) throws Exception {
+        validatePath(request.path);
+        return runInRepo(request.path, "git merge --abort");
+    }
+
+    @Operation(
+            operationId = "devops_git_merge_continue",
+            summary = "Runs `git merge --continue` inside the repo path — completes a merge after resolving conflicts"
+    )
+    @POST
+    @Path("/merge-continue")
+    public ExecutionResponse mergeContinue(GitPathRequest request) throws Exception {
+        validatePath(request.path);
+        return runInRepo(request.path, "git merge --continue");
+    }
+
+    @Operation(
+            operationId = "devops_git_merge_list_conflicts",
+            summary = "Runs `git diff --name-only --diff-filter=U` inside the repo path — lists files with unresolved merge conflicts"
+    )
+    @POST
+    @Path("/merge-list-conflicts")
+    public ExecutionResponse mergeListConflicts(GitPathRequest request) throws Exception {
+        validatePath(request.path);
+        return runInRepo(request.path, "git diff --name-only --diff-filter=U");
     }
 
     // ── fetch ────────────────────────────────────────────────
@@ -411,6 +457,20 @@ public class GitResource extends FsResourceSupport {
             cmd += " " + ToolSupport.shellQuote(request.branch);
         }
         return runInRepo(request.path, cmd);
+    }
+
+    @Operation(
+            operationId = "devops_git_push_set_upstream",
+            summary = "Runs `git push -u origin <branch>` inside the repo path — pushes and sets upstream tracking in one go"
+    )
+    @POST
+    @Path("/push-set-upstream")
+    public ExecutionResponse pushSetUpstream(GitBranchRequest request) throws Exception {
+        validatePath(request.path);
+        if (request.branch == null || request.branch.isBlank()) {
+            throw new IllegalArgumentException("branch is required");
+        }
+        return runInRepo(request.path, "git push -u origin " + ToolSupport.shellQuote(request.branch));
     }
 
     // ── pull ─────────────────────────────────────────────────

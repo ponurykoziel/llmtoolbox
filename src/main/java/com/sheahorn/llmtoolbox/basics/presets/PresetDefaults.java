@@ -1,13 +1,14 @@
 package com.sheahorn.llmtoolbox.basics.presets;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
-import io.quarkus.runtime.StartupEvent;
+import io.quarkus.runtime.Startup;
+import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Observes;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Startup
 @ApplicationScoped
 public class PresetDefaults {
 
@@ -49,7 +50,8 @@ public class PresetDefaults {
             Map.entry("devops", "devops_*")
     );
 
-    void init(@Observes StartupEvent event) {
+    @PostConstruct
+    void init() {
         QuarkusTransaction.run(() -> {
             if (Preset.count() > 0) {
                 return;
