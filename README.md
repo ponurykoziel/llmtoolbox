@@ -197,6 +197,8 @@ Comma-separated operationIds or prefixes with `*` wildcards. Examples:
 
 ## Changelog
 
+- **1.7.1** — ADR compliance pass: fixed `mfop`→`llmtoolbox` config property name in calculator resources, added `implements Calculator` to all calculator resource classes, moved calculator resources to `calculators/resource/` subdirectory, clarified ADR-0004 and ADR-0013 checklist rules.
+- **1.7.0** — In-process tool dispatch via `ToolBean` marker interface and CDI. `ToolDispatcher` invokes methods reflectively — no HTTP calls. `Calculator` interface extends `ToolBean` for automatic discovery. `BuiltinFunctionCache` is the single source of truth for operationId→description mapping.
 - **1.6.1** — Fixed Bearer token authentication. Added Git push -u and merging support. Added sleep support.
 - **1.6.0** — Custom functions v1: user-defined shell-command tools with CRUD UI, OpenAPI injection, and execution via `/api/tools/functions/custom/{operationId}`. Rewrote filesystem path guard with simpler, more robust rules that work for non-existent paths.
 - **1.5.1** — Fixed a bug in filesystem path validation where accessing the allowed root itself (e.g. `fs_ls_flat` on `/workzone/angelica`) would fail with a 500 because the parent-of-root real-path check incorrectly treated the root as out-of-bounds. Improved error messages to include the actual path and allowed root. Test configuration hardened (random port, proactive auth disabled, JDBC realm properly wired).

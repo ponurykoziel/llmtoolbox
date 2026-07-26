@@ -1,9 +1,24 @@
-QUARKUS_CONFIG_LOCATIONS=minimal.application.properties java -jar target/llmtoolbox-1.6.0-runner.jar
+#!/usr/bin/env bash
+# ── LLMToolbox Runner ───────────────────────────────────────────────
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR"
+
+JAR=$(ls target/llmtoolbox-*-runner.jar 2>/dev/null | head -1)
+
+if [ -z "$JAR" ]; then
+    echo "No runner jar found in target/. Build with: mvn clean package"
+    exit 1
+fi
+
+echo "Starting: $JAR"
+QUARKUS_CONFIG_LOCATIONS=minimal.application.properties java -jar "$JAR"
 
 # run in screen
 # honestly, screen is prefered over a docker; this is a host controlling tool with only few reasons to contenerize it.
 #
-# screen -dmS tools_for_my_llm sh -c 'QUARKUS_CONFIG_LOCATIONS=/absolute/path/application.properties java -jar /absolute/path/llmtoolbox-1.6.0-runner.jar'
+# screen -dmS tools_for_my_llm sh -c 'QUARKUS_CONFIG_LOCATIONS=/absolute/path/application.properties java -jar /absolute/path/llmtoolbox-*-runner.jar'
 #
 # note that cron can launch the jar on @reboot, but this will work mostly for headless runs.
 # if launched via cron, the jar will not reach your user's current session.
@@ -17,7 +32,7 @@ QUARKUS_CONFIG_LOCATIONS=minimal.application.properties java -jar target/llmtool
 # for a dockered run, you want something like:
 #
 # CONTAINER="llmtoolbox"
-# JARNAME="./target/llmtoolbox-1.6.0-runner.jar"
+# JARNAME="./target/llmtoolbox-*-runner.jar"
 #
 # docker stop ${CONTAINER}
 # docker rm ${CONTAINER}
@@ -28,4 +43,3 @@ QUARKUS_CONFIG_LOCATIONS=minimal.application.properties java -jar target/llmtool
 #     -e QUARKUS_CONFIG_LOCATIONS=/app/application.properties \
 # eclipse-temurin:21-jre \
 #     java -jar /app/app.jar
-

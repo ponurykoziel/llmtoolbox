@@ -1,5 +1,9 @@
-package com.sheahorn.llmtoolbox.calculators;
+package com.sheahorn.llmtoolbox.calculators.resource;
 
+import com.sheahorn.llmtoolbox.calculators.BinaryCalculator;
+import com.sheahorn.llmtoolbox.calculators.CalculationResponse;
+import com.sheahorn.llmtoolbox.calculators.CalculatorRequestDto;
+import com.sheahorn.llmtoolbox.calculators.common.Calculator;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -8,12 +12,12 @@ import org.eclipse.microprofile.openapi.annotations.Operation;
 @Path("/api/tools/calculator")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
-public class BinaryOperatorsResource {
+public class BinaryOperatorsResource implements Calculator {
 
     private final BinaryCalculator calc;
 
     public BinaryOperatorsResource(
-            @ConfigProperty(name = "mfop.calculator.rounding-digits", defaultValue = "8") int roundingDigits) {
+            @ConfigProperty(name = "llmtoolbox.calculator.rounding-digits", defaultValue = "8") int roundingDigits) {
         this.calc = new BinaryCalculator(roundingDigits);
     }
 
