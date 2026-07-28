@@ -11,6 +11,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import com.sheahorn.llmtoolbox.llm.ToolBean;
 
 import java.net.URI;
 import java.net.URLEncoder;
@@ -20,7 +21,7 @@ import java.util.Map;
 @Path("/api/tools/net/curl")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
-public class CurlController {
+public class CurlController implements ToolBean {
 
     @Inject
     Executor executor;

@@ -8,6 +8,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import com.sheahorn.llmtoolbox.llm.ToolBean;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -21,7 +22,7 @@ import java.time.Instant;
 @jakarta.ws.rs.Path("/api/tools/fs/files")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
-public class FileResource extends FsResourceSupport {
+public class FileResource extends FsResourceSupport implements ToolBean {
 
     @ConfigProperty(name = "llmtoolbox.files.max-read-bytes", defaultValue = "1048576")
     long maxReadBytes;

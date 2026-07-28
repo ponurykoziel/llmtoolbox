@@ -1,0 +1,6 @@
+# Headless Browser Bridge — configuration
+# Copy this file to config.yaml and fill in your values.
+
+host: "127.0.0.1"
+port: 9020
+token: "change-me-to-a-random-secret"

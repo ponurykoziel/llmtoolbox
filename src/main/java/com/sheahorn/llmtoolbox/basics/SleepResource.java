@@ -7,12 +7,12 @@ import java.time.format.DateTimeFormatter;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import org.eclipse.microprofile.openapi.annotations.Operation;
-import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
+import com.sheahorn.llmtoolbox.llm.ToolBean;
 
 @Path("/api/tools/basics")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
-public class SleepResource {
+public class SleepResource implements ToolBean {
 
     @Operation(
             operationId = "sleep",
@@ -20,9 +20,8 @@ public class SleepResource {
     )
     @POST
     @Path("/sleep")
-    public SleepResponse sleep(
-            @Parameter(description = "Number of seconds to sleep", required = true)
-            @QueryParam("seconds") int seconds) {
+    public SleepResponse sleep(SleepRequest request) {
+        int seconds = (request != null && request.seconds != null) ? request.seconds : 0;
 
         ZonedDateTime from = ZonedDateTime.now(ZoneOffset.UTC);
 

@@ -6,11 +6,12 @@ import jakarta.ws.rs.core.MediaType;
 import com.sheahorn.llmtoolbox.execution.ExecutionResponse;
 import com.sheahorn.llmtoolbox.execution.Executor;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import com.sheahorn.llmtoolbox.llm.ToolBean;
 
 @Path("/api/tools/fs/findmnt")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
-public class FindmntResource {
+public class FindmntResource implements ToolBean {
 
     @Inject
     Executor executor;

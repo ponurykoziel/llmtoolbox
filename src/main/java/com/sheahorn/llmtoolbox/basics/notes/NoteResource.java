@@ -5,6 +5,7 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import com.sheahorn.llmtoolbox.llm.ToolBean;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -12,7 +13,7 @@ import java.util.stream.Collectors;
 @Path("/api/tools/basics/notes")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
-public class NoteResource {
+public class NoteResource implements ToolBean {
 
     @Operation(
             operationId = "notes_create",
@@ -45,12 +46,16 @@ public class NoteResource {
             operationId = "notes_read",
             summary = "Returns a single note by its ID"
     )
-    @GET
-    @Path("/{id}")
-    public NoteResponse read(@PathParam("id") Long id) {
-        Note note = Note.findById(id);
+    @POST
+    @Path("/read")
+    public NoteResponse read(NoteRequest request) {
+        if (request == null || request.id == null) {
+            throw new IllegalArgumentException("id is required");
+        }
+
+        Note note = Note.findById(request.id);
         if (note == null) {
-            throw new NotFoundException("note not found: " + id);
+            throw new NotFoundException("note not found: " + request.id);
         }
         return NoteResponse.from(note);
     }
@@ -59,13 +64,17 @@ public class NoteResource {
             operationId = "notes_update",
             summary = "Updates an existing note's title and/or content"
     )
-    @PUT
-    @Path("/{id}")
+    @POST
+    @Path("/update")
     @Transactional
-    public NoteResponse update(@PathParam("id") Long id, NoteRequest request) {
-        Note note = Note.findById(id);
+    public NoteResponse update(NoteRequest request) {
+        if (request == null || request.id == null) {
+            throw new IllegalArgumentException("id is required");
+        }
+
+        Note note = Note.findById(request.id);
         if (note == null) {
-            throw new NotFoundException("note not found: " + id);
+            throw new NotFoundException("note not found: " + request.id);
         }
 
         if (request.title != null && !request.title.isBlank()) {
@@ -90,15 +99,19 @@ public class NoteResource {
             operationId = "notes_delete",
             summary = "Deletes a note by its ID"
     )
-    @DELETE
-    @Path("/{id}")
+    @POST
+    @Path("/delete")
     @Transactional
-    public Response delete(@PathParam("id") Long id) {
-        boolean deleted = Note.deleteById(id);
-        if (!deleted) {
-            throw new NotFoundException("note not found: " + id);
+    public Response delete(NoteRequest request) {
+        if (request == null || request.id == null) {
+            throw new IllegalArgumentException("id is required");
         }
-        return Response.ok("{\"deleted\":" + id + "}").build();
+
+        boolean deleted = Note.deleteById(request.id);
+        if (!deleted) {
+            throw new NotFoundException("note not found: " + request.id);
+        }
+        return Response.ok("{\"deleted\":" + request.id + "}").build();
     }
 
     @Operation(
