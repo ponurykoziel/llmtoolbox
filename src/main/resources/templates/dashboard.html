@@ -26,13 +26,8 @@
     <div class="grid grid-2" style="margin-bottom: 24px;">
         <div class="card">
             <div class="card-body">
-                <h2>Quick Links</h2>
-                <div class="stack" style="gap:8px;">
-                    <a href="/ui/presets" class="btn btn-primary" style="text-align:center;">Manage Presets</a>
-                    <a href="/ui/functions" class="btn btn-primary" style="text-align:center;">Browse Functions</a>
-                    <a href="/ui/llm" class="btn btn-primary" style="text-align:center;">LLM Calling</a>
-                    <a href="/q/swagger-ui" class="btn" style="text-align:center;">API Docs (Swagger)</a>
-                </div>
+                <h2>LLM Calling</h2>
+                <div id="llm-calling" class="status-box">Loading&hellip;</div>
             </div>
         </div>
         <div class="card">
@@ -99,6 +94,13 @@
         return locked ? 'LOCKED' : 'free';
     }
 
+    function browserColor(status) {
+        if (status === 'on') return 'color:var(--gold);';
+        if (status === 'no venv') return 'color:var(--danger);';
+        if (status === 'init') return 'color:var(--muted);';
+        return '';
+    }
+
     function toolPill(tool) {
         if (tool === 'mvn') return 'pill-normal';
         if (tool === 'git') return 'pill-doing';
@@ -108,11 +110,16 @@
 
     async function refresh() {
         try {
-            var [presetsRes, builtinRes, customRes, locksRes] = await Promise.all([
+            var [presetsRes, builtinRes, customRes, locksRes, featuresRes, providersRes, personalitiesRes, modelsRes, agentsRes] = await Promise.all([
                 fetch('/api/tools/basics/presets/all'),
                 fetch('/api/functions/builtin'),
                 fetch('/api/tools/functions').catch(function() { return {ok: false}; }),
-                fetch('/api/tools/build/locks').catch(function() { return {ok: false}; })
+                fetch('/api/tools/build/locks').catch(function() { return {ok: false}; }),
+                fetch('/api/tools/features').catch(function() { return {ok: false}; }),
+                fetch('/api/llm/providers').catch(function() { return {ok: false}; }),
+                fetch('/api/llm/personalities').catch(function() { return {ok: false}; }),
+                fetch('/api/llm/models').catch(function() { return {ok: false}; }),
+                fetch('/api/llm/agents').catch(function() { return {ok: false}; })
             ]);
 
             var presets = presetsRes.ok ? await presetsRes.json() : [];
@@ -123,6 +130,13 @@
             var lockMode = locksData.mode || 'synchronize';
             var inFlight = locksData.inFlight || [];
             var history = locksData.history || [];
+            var features = featuresRes.ok ? await featuresRes.json() : {};
+            var terminalEnabled = !!(features.terminal && features.terminal.enabled);
+            var browserStatus = (features.browser && features.browser.status) ? features.browser.status : (features.browser && features.browser.enabled ? 'on' : 'off');
+            var providers = providersRes.ok ? await providersRes.json() : [];
+            var personalities = personalitiesRes.ok ? await personalitiesRes.json() : [];
+            var models = modelsRes.ok ? await modelsRes.json() : [];
+            var agents = agentsRes.ok ? await agentsRes.json() : [];
 
             document.getElementById('preset-count').textContent = presets.length;
             document.getElementById('function-count').textContent = builtins.length + customs.length;
@@ -136,8 +150,37 @@
                 + '<span class="pill pill-doing" style="white-space:nowrap;">custom</span>'
                 + '<span style="font-size:18px;font-weight:700;">' + customs.length + '</span>'
                 + '</div>'
+                + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+                + '<span class="pill pill-normal" style="white-space:nowrap;">terminal</span>'
+                + '<span style="font-size:14px;font-weight:700;' + (terminalEnabled ? 'color:var(--gold);' : '') + '">' + (terminalEnabled ? 'on' : 'off') + '</span>'
+                + '</div>'
+                + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+                + '<span class="pill pill-normal" style="white-space:nowrap;">browser</span>'
+                + '<span style="font-size:14px;font-weight:700;' + browserColor(browserStatus) + '">' + esc(browserStatus) + '</span>'
+                + '</div>'
                 + '</div>';
             document.getElementById('functions-breakdown').innerHTML = breakdownHtml;
+
+            // ── llm calling ────────────────────────────────────
+            var llmHtml = '<div class="grid grid-2" style="gap:12px;">'
+                + '<div style="background:var(--panel-2);border-radius:8px;padding:12px 14px;text-align:center;">'
+                + '<div style="font-size:24px;font-weight:700;">' + providers.length + '</div>'
+                + '<div class="muted small">Providers</div>'
+                + '</div>'
+                + '<div style="background:var(--panel-2);border-radius:8px;padding:12px 14px;text-align:center;">'
+                + '<div style="font-size:24px;font-weight:700;">' + personalities.length + '</div>'
+                + '<div class="muted small">Personalities</div>'
+                + '</div>'
+                + '<div style="background:var(--panel-2);border-radius:8px;padding:12px 14px;text-align:center;">'
+                + '<div style="font-size:24px;font-weight:700;">' + models.length + '</div>'
+                + '<div class="muted small">Models</div>'
+                + '</div>'
+                + '<div style="background:var(--panel-2);border-radius:8px;padding:12px 14px;text-align:center;">'
+                + '<div style="font-size:24px;font-weight:700;">' + agents.length + '</div>'
+                + '<div class="muted small">Agents</div>'
+                + '</div>'
+                + '</div>';
+            document.getElementById('llm-calling').innerHTML = llmHtml;
 
             // ── locks ──────────────────────────────────────────
             var lockNames = ['mvn', 'git', 'docker'];

@@ -12,6 +12,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
@@ -19,12 +20,22 @@ import java.util.concurrent.TimeUnit;
 /**
  * Manages the headless_browser Python sidecar process lifecycle.
  * <p>
- * On startup (if enabled), launches {@code browser/run.sh} which activates the
- * Python venv and starts the FastAPI server. Polls {@code /openapi.json} until
+ * On startup (if enabled), it ensures the Python venv exists (auto-creating it via
+ * {@code browser/setup.sh} when missing), then launches {@code browser/run.sh} which
+ * activates the venv and starts the FastAPI server. Polls {@code /openapi.json} until
  * the server responds, then marks the sidecar as ready.
  * </p>
  * <p>
  * On shutdown, destroys the Python process and waits for graceful termination.
+ * </p>
+ * <p>
+ * The sidecar exposes a coarse status string for the dashboard:
+ * <ul>
+ *   <li>{@code off} — disabled ({@code llmtoolbox.browser.enabled=false})</li>
+ *   <li>{@code init} — enabled but no scripts found ({@code browser/server.py} missing)</li>
+ *   <li>{@code no venv} — enabled, scripts found, but the venv could not be created / sidecar failed to start</li>
+ *   <li>{@code on} — enabled and ready</li>
+ * </ul>
  * </p>
  */
 @ApplicationScoped
@@ -43,16 +54,36 @@ public class BrowserSidecar {
 
     private Process process;
     private volatile boolean ready = false;
+    private volatile String status = "off";
 
     @PostConstruct
     void start() {
         if (!enabled) {
+            status = "off";
             LOG.info("Browser sidecar is disabled (llmtoolbox.browser.enabled=false). Skipping startup.");
             return;
         }
 
+        Path dir = Path.of(browserDir).toAbsolutePath().normalize();
+        Path serverPy = dir.resolve("server.py");
+        Path venv = dir.resolve(".venv");
+
+        if (!Files.exists(serverPy)) {
+            status = "init";
+            LOG.warnf("Browser sidecar is enabled but no scripts found at %s (server.py missing). Status: init.", dir);
+            return;
+        }
+
+        if (!Files.isDirectory(venv)) {
+            LOG.infof("No venv found at %s. Running setup.sh to create it...", venv);
+            if (!runSetup(dir)) {
+                status = "no venv";
+                LOG.errorf("Failed to create browser venv at %s. Status: no venv.", venv);
+                return;
+            }
+        }
+
         try {
-            Path dir = Path.of(browserDir).toAbsolutePath().normalize();
             LOG.infof("Starting browser sidecar from %s on port %d...", dir, port);
 
             ProcessBuilder pb = new ProcessBuilder("bash", "run.sh")
@@ -78,8 +109,10 @@ public class BrowserSidecar {
             // Health check: poll /openapi.json until the server responds
             waitForReady();
 
+            status = "on";
             LOG.info("Browser sidecar is ready.");
         } catch (Exception e) {
+            status = "no venv";
             LOG.errorf(e, "Failed to start browser sidecar");
             if (process != null) {
                 process.destroyForcibly();
@@ -106,6 +139,36 @@ public class BrowserSidecar {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             process.destroyForcibly();
+        }
+    }
+
+    /**
+     * Runs {@code browser/setup.sh} to create the venv and install dependencies.
+     * Returns true on success (exit code 0).
+     */
+    private boolean runSetup(Path dir) {
+        try {
+            ProcessBuilder pb = new ProcessBuilder("bash", "setup.sh")
+                    .directory(dir.toFile())
+                    .redirectErrorStream(true);
+            Process p = pb.start();
+
+            try (var reader = new BufferedReader(new InputStreamReader(p.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    LOG.infof("[browser-setup] %s", line);
+                }
+            }
+
+            int exit = p.waitFor();
+            if (exit != 0) {
+                LOG.errorf("setup.sh exited with code %d", exit);
+                return false;
+            }
+            return true;
+        } catch (Exception e) {
+            LOG.errorf(e, "setup.sh failed");
+            return false;
         }
     }
 
@@ -163,5 +226,13 @@ public class BrowserSidecar {
      */
     public boolean isReady() {
         return enabled && ready;
+    }
+
+    /**
+     * Returns the coarse status string for the dashboard: {@code off}, {@code init},
+     * {@code no venv}, or {@code on}.
+     */
+    public String status() {
+        return status;
     }
 }
