@@ -10,13 +10,14 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import com.sheahorn.llmtoolbox.llm.ToolBean;
 
 import java.util.List;
 
 @Path("/api/tools/net/dig")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
-public class DigController {
+public class DigController implements ToolBean {
 
     private static final List<DigRecordType> DEFAULT_TYPES = List.of(
             DigRecordType.A,

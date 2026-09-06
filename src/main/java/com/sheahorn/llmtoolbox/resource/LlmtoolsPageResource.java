@@ -122,6 +122,15 @@ public class LlmtoolsPageResource {
     }
 
     @GET
+    @Path("/ui/llm")
+    @Produces(MediaType.TEXT_HTML)
+    public Response llm() {
+        org.thymeleaf.context.Context ctx = new org.thymeleaf.context.Context();
+        ctx.setVariable("isAdmin", isAdmin());
+        return Response.ok(templateEngine.process("llm", ctx)).build();
+    }
+
+    @GET
     @Path("/ui/search")
     @Produces(MediaType.TEXT_HTML)
     public Response search() {

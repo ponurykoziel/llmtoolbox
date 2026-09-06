@@ -7,11 +7,12 @@ import com.sheahorn.llmtoolbox.execution.ExecutionResponse;
 import com.sheahorn.llmtoolbox.execution.Executor;
 import com.sheahorn.llmtoolbox.execution.ToolSupport;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import com.sheahorn.llmtoolbox.llm.ToolBean;
 
 @Path("/api/tools/fs/sha256sum")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
-public class Sha256sumResource extends FsResourceSupport {
+public class Sha256sumResource extends FsResourceSupport implements ToolBean {
 
     @Inject
     Executor executor;

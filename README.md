@@ -4,7 +4,7 @@ A suite of tools for building custom AI-driven workflows. Tools are meant to be 
 LLMToolbox allows AI to interact with the enviroment and offers support in areas, in which AI is likely to hallucinate. 
 Tool composition as been optimized to achieve efficient semantic distances between operations, backed by averaged online tests on GPT, Grok, Qwen, Gemma, Deepseek, GLM, Kimi, Minimax and Nemotron. 
 
-Your LLM can access the filesystem, solve a quadric equation, inspect your host state, control media, traceroute and dig a crypto scam and verify their APY, count remaining bussiness days of an SSL cert, use CIELAB, and more. 
+Your LLM can access the filesystem, solve a quadric equation, inspect your host state, control media, traceroute and dig a crypto scam and verify their APY, count remaining bussiness days of an SSL cert, use CIELAB, drive a headless browser, call other LLMs, and more. 
 
 Windows and MacOS are neither supported nor planned to be such. 
 
@@ -62,7 +62,7 @@ API endpoints also accept the session cookie, so a browser session works for bot
 
 ### Filesystem (`fs_*`)
 
-File CRUD (create, read, overwrite, append, replace, replace-regex, move, delete), directory operations (mkdir, rmdir), listing (flat, recursive), pack-folder (concatenate a directory into a single text bundle), head/tail, df, du, lsblk, findmnt, ls-info, sha256sum. All paths are validated and confined to `llmtoolbox.files.allowed-root`. Symlink escapes are detected and blocked.
+File CRUD (create, read, overwrite, append, replace, replace-regex, move-file, delete), directory operations (mkdir, rmdir, move-dir), listing (flat, recursive), pack-folder (concatenate a directory into a single text bundle), head/tail, df, du, lsblk, findmnt, ls-info, sha256sum. All paths are validated and confined to `llmtoolbox.files.allowed-root`. Symlink escapes are detected and blocked.
 
 ### Network (`net_*`)
 
@@ -79,21 +79,24 @@ ping, dig (A, AAAA, CNAME, MX, TXT, NS, SOA, SRV, CAA, and more), curl (HTTPS-on
 - **Hardware** — lscpu, lsmem, lsusb, lspci, sensors, nvidia-smi.
 - **Net info** — whois lookups.
 
-### Build Tools (`build_*`)
+### Build & DevOps Tools (`build_*`, `devops_*`)
 
 **Maven** — operations scoped to a project path inside the allowed root: clean, compile, test, test-one (single test class), verify, package, package-skip-tests, dependency:tree, help:effective-pom, help:effective-settings, versions:display-dependency-updates. Supports `-o` (offline), `-P` (profile), and `-DskipTests` flags. A global lock synchronizes all Maven invocations to prevent concurrent build corruption.
 
 **Gradle** — operations scoped to a project path inside the allowed root: clean, compile, test, test-one (single test class), check, build, build-skip-tests, dependencies, properties, buildEnvironment, dependencyUpdates. Supports `--offline`, `-P` (project property), and `-x test` (skip tests) flags. A global lock synchronizes all Gradle invocations to prevent concurrent build corruption.
 
-**Git** — operations scoped to a repo path inside the allowed root: status, log, diff, diff-staged, add, commit, push, pull, branch, clone, stash, tag. A global lock serializes all Git invocations to prevent concurrent repo corruption.
+**Git** (`devops_git_*`) — operations scoped to a repo path inside the allowed root: status, log (full / oneline / recent-n), diff, diff-staged, remote & config print, add, commit, reset (mixed / soft / hard / hard-to-origin), clean, branch (list local & remote, create, delete, set-upstream), checkout (branch / commit / new branch), merge (normal / squash / abort / continue / list-conflicts), fetch, push (incl. custom branch and `-u` set-upstream), pull (merge / rebase / ff-only), clone. A global lock serializes all Git invocations to prevent concurrent repo corruption.
 
 **CMake** — operations scoped to source and build paths inside the allowed root: configure (with -D defines and build type), build (with --target, --clean-first, -j, --verbose), and read-cache (parses CMakeCache.txt for key variables). A global lock serializes all CMake invocations.
 
-**Docker** — container and image management: ps, images, logs, run, stop, start, rm, rmi, pull, build, exec, inspect, compose up/down. A global lock serializes all Docker invocations to prevent concurrent state corruption.
+**Cargo** (`build_cargo_*`) — Rust build system, scoped to a project path inside the allowed root: build (optional --release), test, test-one (single test filter), check (fast compile check, no binary), clean, tree (dependency tree), metadata (JSON project metadata). Supports --offline. A global lock serializes all Cargo invocations.
 
-### Basics (`time_now`, `memory_*`, `notes_*`, `clipboard_*`, `presets_*`)
+**Docker** (`devops_docker_*`) — container and image management: version / info / stats, containers (list, inspect, top, ports, logs full & tail, start, stop, restart, rename, remove, retrieve-file, network connect & disconnect), images (list, pull, remove, prune), networks (list, inspect, create, remove), volumes (list, inspect), build, history, exec, run, compose (up, down, ps, logs, restart, build, pull). A global lock serializes all Docker invocations to prevent concurrent state corruption.
+
+### Basics (`time_now`, `sleep`, `memory_*`, `notes_*`, `clipboard_*`, `presets_*`)
 
 - **Current time** — UTC timestamp with ISO, human-readable, and epoch formats.
+- **Sleep** — sleeps for the given number of seconds, returns from/to timestamps.
 - **Memory** — persistent key-value store (add, get, find, list, delete).
 - **Notes** — titled notes with CRUD and search. Technically, similar to memories.
 - **Clipboard** — in-memory clipboard (read/write/append). A scratchpad for the LLM, not the host clipboard.
@@ -137,6 +140,16 @@ User-defined shell-command tools. Create custom functions via the browser UI und
 Raw shell command execution. **Disabled by default** — set `llmtoolbox.terminal.allow=true` to enable. If the JVM runs with passwordless sudo, this effectively grants root access. 
 Primary use case of this tool is narrow. Useful when setting up autonomous daemon environments for LLMs. On a dedicated bare metal. You want it dedicated, trust me. It will take a few clean installs for them to learn. 
 
+### LLM Calling (`llm_execute_request`)
+
+llmtoolbox can act as an LLM client itself. Manage **Providers** (OpenAI-compatible or Ollama endpoints), **Models**, **Personalities** (system prompt + sampling parameters), and **Agents** (provider + model + personality + tool preset) via the browser UI under **LLM**. The `llm_execute_request` tool executes a prompt through a configured agent with tool support: the agent can call any tools from its preset, dispatched in-process, in a multi-round loop until a final answer.
+
+### Browser (`browser_*`)
+
+Opt-in headless browsing via a Python sidecar (FastAPI + Playwright + persistent Chromium), managed as a child process by the Java app. **Disabled by default** — enable with `llmtoolbox.browser.enabled=true`, install dependencies with `browser/setup.sh`, and configure `browser/config.yaml` (see `config.yaml.sample`). The sidecar binds to `127.0.0.1` only and shares a bearer token with the Java proxy.
+
+Tools: profile management (list, create, delete), sessions (open, close, list, current URL), and page interaction — navigate, get HTML, get visible text, click element, screenshots (base64 and PNG), execute JavaScript, type text. Sessions run on isolated browser profiles with stealth mitigations.
+
 ## Host Dependencies
 
 Some tools shell out to system commands. The table below lists what each tool category needs beyond a bare Linux install.
@@ -165,8 +178,10 @@ Some tools shell out to system commands. The table below lists what each tool ca
 | `build_mvn_*` | `mvn` | maven |
 | `build_gradle_*` | `gradle` | gradle |
 | `build_cmake_*` | `cmake` | cmake |
-| `build_git_*` | `git` | git |
-| `build_docker_*` | `docker` | docker.io / docker-ce |
+| `build_cargo_*` | `cargo` | cargo (via rustup) |
+| `devops_git_*` | `git` | git |
+| `devops_docker_*` | `docker` | docker.io / docker-ce |
+| `browser_*` | `python3` + Playwright + Chromium | see `browser/setup.sh` |
 
 Everything else (`find`, `head`, `tail`, `df`, `du`, `ls`, `cat`, `hostname`, `free`, `uptime`, `who`, `ps`, `top`, `ss`, `ip`, `systemctl`, `journalctl`, `dmesg`, `lscpu`, `lsmem`) is part of coreutils, procps, iproute2, util-linux, or systemd — present on any typical Linux host.
 
@@ -180,9 +195,9 @@ llmtoolbox auto-generates an OpenAPI 3.1 spec (via Quarkus SmallRye OpenAPI). Yo
 GET /api/openapi/preset/{name}
 ```
 
-Built-in presets: `all`, `fs`, `net`, `host`, `build`, `communication`, `basics`, `current_time`, `presets`, `terminal`, `calculator`.
+Built-in presets: `all`, `fs`, `net`, `host`, `build`, `mvn`, `maven`, `devops`, `communication`, `basics`, `current_time`, `presets`, `terminal`, `calculator`, `git`, `docker`.
 
-Seeded composite presets: `daemon` (filesystem + host info + network + clipboard + memory + notes + communication + current time), `builder` (filesystem + Maven), `host_ctl` (audio + power + monitor), `host_info` (hardware + netinfo + sysinfo + services + logs).
+Seeded composite presets: `daemon` (filesystem + host info + network + clipboard + memory + notes + communication + current time), `builder` (filesystem + Maven), `host_ctl` (audio + power + monitor), `host_info` (hardware + netinfo + sysinfo + services + logs), `devops` (all git + docker tools).
 
 ### By Selector (if you must)
 
@@ -197,6 +212,7 @@ Comma-separated operationIds or prefixes with `*` wildcards. Examples:
 
 ## Changelog
 
+- **1.8.0** — LLM calling: providers, models, personalities, and agents with the `llm_execute_request` endpoint (multi-round in-process tool loop). Browser sidecar: opt-in headless browsing (FastAPI + Playwright + Chromium) with 15 `browser_*` tools. Cargo build tools (`build_cargo_*`): build, test, test-one, check, clean, tree, metadata. Sleep tool. Filesystem moves split by type: `fs_files_move_file` (renamed from `fs_files_move`) and `fs_files_move_dir` (new, directories only). Git and Docker tools renamed to `devops_git_*` / `devops_docker_*` per ADR-0013. ADR-0013 (LLM tool naming) and ADR-0014 (in-process ToolBean dispatch) accepted.
 - **1.7.1** — ADR compliance pass: fixed `mfop`→`llmtoolbox` config property name in calculator resources, added `implements Calculator` to all calculator resource classes, moved calculator resources to `calculators/resource/` subdirectory, clarified ADR-0004 and ADR-0013 checklist rules.
 - **1.7.0** — In-process tool dispatch via `ToolBean` marker interface and CDI. `ToolDispatcher` invokes methods reflectively — no HTTP calls. `Calculator` interface extends `ToolBean` for automatic discovery. `BuiltinFunctionCache` is the single source of truth for operationId→description mapping.
 - **1.6.1** — Fixed Bearer token authentication. Added Git push -u and merging support. Added sleep support.

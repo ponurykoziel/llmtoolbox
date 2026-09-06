@@ -35,13 +35,13 @@ public class PresetDefaults {
     /** Composite presets — seeded into DB on first boot. */
     private static final Map<String, String> SEED = Map.ofEntries(
             Map.entry("daemon",
-                    "fs_files_create,fs_files_delete,fs_files_mkdir,fs_files_move," +
-                    "fs_files_overwrite,fs_files_read,fs_files_replace,fs_files_rmdir," +
+                    "fs_files_create,fs_files_delete,fs_files_mkdir,fs_files_move_dir," +
+                    "fs_files_move_file,fs_files_overwrite,fs_files_read,fs_files_replace,fs_files_rmdir," +
                     "fs_ls_flat,fs_ls_recursive," +
                     "host_hardware_*,host_netinfo_*,host_sysinfo_*,host_services_*,host_logs_*," +
                     "communication_send_message,clipboard_*,time_now,memory_*,notes_*,net_*"),
             Map.entry("builder",
-                    "fs_files_create,fs_files_delete,fs_files_mkdir,fs_files_move," +
+                    "fs_files_create,fs_files_delete,fs_files_mkdir,fs_files_move_file," +
                     "fs_files_overwrite,fs_files_read,fs_files_replace,fs_files_rmdir," +
                     "fs_ls_flat,fs_ls_recursive," +
                     "build_mvn_compile,build_mvn_test,build_mvn_test_one"),

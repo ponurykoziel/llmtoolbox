@@ -7,11 +7,12 @@ import java.time.format.DateTimeFormatter;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import com.sheahorn.llmtoolbox.llm.ToolBean;
 
 @Path("/api/tools/basics")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
-public class CurrentTimeResource {
+public class CurrentTimeResource implements ToolBean {
 
     @Operation(
             operationId = "time_now",

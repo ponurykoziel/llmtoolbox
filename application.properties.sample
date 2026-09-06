@@ -82,6 +82,22 @@
 # The chat id is in the JSON response under result[].message.chat.id
 #llmtoolbox.communication.telegram.chatid=0
 
+# ── Browser Sidecar ──────────────────────────────────────────────
+
+# Enable the headless browser Python sidecar. Requires Python 3,
+# Playwright, and Chromium installed (see browser/setup.sh).
+#llmtoolbox.browser.enabled=false
+
+# Port the Python sidecar listens on (must match browser/config.yaml).
+#llmtoolbox.browser.port=9020
+
+# Path to the browser/ directory containing the Python sidecar.
+#llmtoolbox.browser.python.path=browser
+
+# Bearer token shared between Java and Python sidecar.
+# Must match the token in browser/config.yaml.
+#llmtoolbox.browser.token=
+
 # ── Security ──────────────────────────────────────────────────────
 
 # Master Bearer token for API access. Send as: Authorization: Bearer <token>

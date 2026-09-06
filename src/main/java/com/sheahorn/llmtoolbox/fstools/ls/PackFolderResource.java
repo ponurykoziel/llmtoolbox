@@ -8,6 +8,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import com.sheahorn.llmtoolbox.llm.ToolBean;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -22,7 +23,7 @@ import java.util.List;
 @jakarta.ws.rs.Path("/pack-folder")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
-public class PackFolderResource extends FsResourceSupport {
+public class PackFolderResource extends FsResourceSupport implements ToolBean {
 
     @ConfigProperty(name = "llmtoolbox.files.max-pack-total-bytes", defaultValue = "2097152")
     long maxTotalBytes;
