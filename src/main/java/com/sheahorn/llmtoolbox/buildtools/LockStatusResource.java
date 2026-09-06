@@ -1,5 +1,6 @@
 package com.sheahorn.llmtoolbox.buildtools;
 
+import com.sheahorn.llmtoolbox.buildtools.cargo.CargoLockService;
 import com.sheahorn.llmtoolbox.buildtools.docker.DockerLockService;
 import com.sheahorn.llmtoolbox.buildtools.git.GitLockService;
 import com.sheahorn.llmtoolbox.buildtools.gradle.GradleLockService;
@@ -32,6 +33,9 @@ public class LockStatusResource {
     DockerLockService dockerLock;
 
     @Inject
+    CargoLockService cargoLock;
+
+    @Inject
     ToolCallInFlightService inFlightService;
 
     @Inject
@@ -39,7 +43,7 @@ public class LockStatusResource {
 
     @Operation(
             operationId = "build_locks_status",
-            summary = "Returns the current lock state for mvn, gradle, git, and docker, plus in-flight calls and recent history"
+            summary = "Returns the current lock state for mvn, gradle, git, docker, and cargo, plus in-flight calls and recent history"
     )
     @GET
     public Map<String, Object> status() {
@@ -57,6 +61,7 @@ public class LockStatusResource {
         result.put("gradle", toInfo(gradleLock));
         result.put("git", toInfo(gitLock));
         result.put("docker", toInfo(dockerLock));
+        result.put("cargo", toInfo(cargoLock));
         return result;
     }
 
