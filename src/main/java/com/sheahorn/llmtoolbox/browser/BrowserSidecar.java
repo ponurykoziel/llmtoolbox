@@ -174,6 +174,7 @@ public class BrowserSidecar {
 
     private void waitForReady() {
         HttpClient client = HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_1_1)
                 .connectTimeout(Duration.ofSeconds(2))
                 .build();
 
