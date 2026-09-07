@@ -35,6 +35,7 @@ public class FeatureStatusResource {
         Map<String, Object> browser = new LinkedHashMap<>();
         browser.put("enabled", browserEnabled);
         browser.put("status", browserSidecar.status());
+        browser.put("venvPresent", browserSidecar.isVenvPresent());
         result.put("browser", browser);
         return result;
     }
