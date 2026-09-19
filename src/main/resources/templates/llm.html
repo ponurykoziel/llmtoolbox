@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: layout(title='LLM Calling', activePath='/ui/llm', content=~{::#page-content})}">
+<body>
+<div id="page-content">
+    <h1 class="page-title">LLM Calling</h1>
+    <p class="page-subtitle">Manage providers, models, personalities, and agents</p>
+
+    <div class="actions" style="margin-bottom: 20px; gap: 4px;">
+        <button class="btn btn-small" onclick="switchTab('providers')" id="tab-providers">Providers</button>
+        <button class="btn btn-small" onclick="switchTab('models')" id="tab-models">Models</button>
+        <button class="btn btn-small" onclick="switchTab('personalities')" id="tab-personalities">Personalities</button>
+        <button class="btn btn-small" onclick="switchTab('agents')" id="tab-agents">Agents</button>
+        <button class="btn btn-small" onclick="switchTab('test')" id="tab-test">Test</button>
+    </div>
+
+    <!-- PROVIDERS -->
+    <div id="section-providers" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <h2 style="margin:0;">Providers</h2>
+            <button class="btn btn-primary" onclick="showProviderForm()">+ New Provider</button>
+        </div>
+        <div id="providers-list">Loading&hellip;</div>
+        <div id="provider-form" style="display:none; margin-top:16px;" class="card">
+            <div class="card-body">
+                <h3 id="provider-form-title">New Provider</h3>
+                <div class="stack">
+                    <div class="form-group"><label>Name</label><input type="text" id="prov-name" placeholder="e.g. my-ollama"></div>
+                    <div class="form-group"><label>Base URL</label><input type="text" id="prov-baseUrl" placeholder="http://localhost:11434"></div>
+                    <div class="form-group"><label>API Key (optional)</label><input type="text" id="prov-apiKey" placeholder="sk-..."></div>
+                    <div class="form-group"><label>API Type</label><select id="prov-apiType"><option value="ollama">ollama</option><option value="openai">openai</option><option value="openwebui">openwebui</option></select></div>
+                    <div class="form-group"><label>API Mode</label><select id="prov-apiMode"><option value="chat">chat</option><option value="completions">completions</option></select></div>
+                    <div class="actions">
+                        <button class="btn btn-primary" id="prov-save-btn" onclick="saveProvider()">Save</button>
+                        <button class="btn" onclick="hideProviderForm()">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODELS -->
+    <div id="section-models" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <h2 style="margin:0;">Models</h2>
+            <button class="btn btn-primary" onclick="showModelForm()">+ New Model</button>
+        </div>
+        <div id="models-list">Loading&hellip;</div>
+        <div id="model-form" style="display:none; margin-top:16px;" class="card">
+            <div class="card-body">
+                <h3 id="model-form-title">New Model</h3>
+                <div class="stack">
+                    <div class="form-group"><label>Nice Name</label><input type="text" id="model-niceName" placeholder="e.g. gpt-4o"></div>
+                    <div class="form-group"><label>Provider Name (API model string)</label><input type="text" id="model-providerName" placeholder="e.g. gpt-4o-2024-08-06"></div>
+                    <div class="form-group"><label>Provider</label><select id="model-providerId"></select></div>
+                    <div class="actions">
+                        <button class="btn btn-primary" id="model-save-btn" onclick="saveModel()">Save</button>
+                        <button class="btn" onclick="hideModelForm()">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PERSONALITIES -->
+    <div id="section-personalities" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <h2 style="margin:0;">Personalities</h2>
+            <button class="btn btn-primary" onclick="showPersonalityForm()">+ New Personality</button>
+        </div>
+        <div id="personalities-list">Loading&hellip;</div>
+        <div id="personality-form" style="display:none; margin-top:16px;" class="card">
+            <div class="card-body">
+                <h3 id="personality-form-title">New Personality</h3>
+                <div class="stack">
+                    <div class="form-group"><label>Nice Name</label><input type="text" id="pers-niceName" placeholder="e.g. helpful-assistant"></div>
+                    <div class="form-group"><label>System Prompt</label><textarea id="pers-systemPrompt" rows="4" placeholder="You are a helpful assistant..."></textarea></div>
+                    <div class="grid grid-3" style="gap:12px;">
+                        <div class="form-group"><label>Temperature (-1 = default)</label><input type="number" id="pers-temperature" step="0.01" value="-1"></div>
+                        <div class="form-group"><label>Min-P</label><input type="number" id="pers-minP" step="0.01" value="-1"></div>
+                        <div class="form-group"><label>Top-P</label><input type="number" id="pers-topP" step="0.01" value="-1"></div>
+                        <div class="form-group"><label>Top-K</label><input type="number" id="pers-topK" step="0.01" value="-1"></div>
+                        <div class="form-group"><label>Frequency Penalty</label><input type="number" id="pers-frequencyPenalty" step="0.01" value="-1"></div>
+                        <div class="form-group"><label>Presence Penalty</label><input type="number" id="pers-presencePenalty" step="0.01" value="-1"></div>
+                    </div>
+                    <div class="form-group"><label>Reasoning Effort</label><input type="text" id="pers-reasoningEffort" placeholder="e.g. low, medium, high"></div>
+                    <div class="actions">
+                        <button class="btn btn-primary" id="pers-save-btn" onclick="savePersonality()">Save</button>
+                        <button class="btn" onclick="hidePersonalityForm()">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AGENTS -->
+    <div id="section-agents" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <h2 style="margin:0;">Agents</h2>
+            <button class="btn btn-primary" onclick="showAgentForm()">+ New Agent</button>
+        </div>
+        <div id="agents-list">Loading&hellip;</div>
+        <div id="agent-form" style="display:none; margin-top:16px;" class="card">
+            <div class="card-body">
+                <h3 id="agent-form-title">New Agent</h3>
+                <div class="stack">
+                    <div class="form-group"><label>Nice Name</label><input type="text" id="agent-niceName" placeholder="e.g. my-coder"></div>
+                    <div class="form-group"><label>Provider</label><select id="agent-providerId" onchange="updateToolPresetState()"></select></div>
+                    <div class="form-group"><label>Model</label><select id="agent-modelId"></select></div>
+                    <div class="form-group"><label>Personality</label><select id="agent-personalityId"></select></div>
+                    <div class="form-group"><label>Tool Preset (optional)</label><input type="text" id="agent-toolPreset" placeholder="e.g. coding-tools"></div>
+                    <div class="actions">
+                        <button class="btn btn-primary" id="agent-save-btn" onclick="saveAgent()">Save</button>
+                        <button class="btn" onclick="hideAgentForm()">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TEST -->
+    <div id="section-test" style="display:none;">
+        <h2 style="margin:0; margin-bottom:16px;">Test Agent</h2>
+        <div class="card">
+            <div class="card-body">
+                <div class="stack">
+                    <div class="form-group">
+                        <label>Agent</label>
+                        <select id="test-agent-select"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Prompt</label>
+                        <textarea id="test-prompt" rows="4" placeholder="Enter your prompt..."></textarea>
+                    </div>
+                    <div class="actions">
+                        <button class="btn btn-primary" id="test-run-btn" onclick="runAgentTest()">Run</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="test-result" style="margin-top:16px;"></div>
+    </div>
+
+    <script>
+    var currentTab = 'providers';
+    var editingId = null;
+
+    function esc(s) { return s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; }
+
+    function switchTab(tab) {
+        currentTab = tab;
+        ['providers','models','personalities','agents','test'].forEach(function(t) {
+            document.getElementById('section-' + t).style.display = (t === tab) ? 'block' : 'none';
+            var btn = document.getElementById('tab-' + t);
+            if (btn) btn.style.borderColor = (t === tab) ? 'var(--accent)' : 'var(--border)';
+        });
+        if (tab === 'providers') loadProviders();
+        if (tab === 'models') loadModels();
+        if (tab === 'personalities') loadPersonalities();
+        if (tab === 'agents') loadAgents();
+        if (tab === 'test') loadTestTab();
+    }
+
+    // ── PROVIDERS ─────────────────────────────────────────────
+
+    async function loadProviders() {
+        try {
+            var res = await fetch('/api/llm/providers');
+            var providers = res.ok ? await res.json() : [];
+            var html = '';
+            if (providers.length === 0) {
+                html = '<div class="empty-state-compact">No providers yet. Create one above.</div>';
+            } else {
+                html = '<table><thead><tr><th>Name</th><th>Base URL</th><th>Type</th><th>Mode</th><th></th></tr></thead><tbody>';
+                providers.forEach(function(p) {
+                    html += '<tr>'
+                        + '<td><strong>' + esc(p.name) + '</strong></td>'
+                        + '<td class="muted small">' + esc(p.baseUrl) + '</td>'
+                        + '<td><span class="pill pill-normal">' + esc(p.apiType) + '</span></td>'
+                        + '<td><span class="pill pill-todo">' + esc(p.apiMode || 'chat') + '</span></td>'
+                        + '<td>'
+                        + '<button class="btn btn-small btn-good" onclick="testProvider(\'' + p.id + '\')">Test</button> '
+                        + '<button class="btn btn-small" onclick="editProvider(\'' + p.id + '\')">Edit</button> '
+                        + '<button class="btn btn-small btn-danger" onclick="deleteProvider(\'' + p.id + '\')">Del</button>'
+                        + '</td></tr>';
+                });
+                html += '</tbody></table>';
+            }
+            document.getElementById('providers-list').innerHTML = html;
+        } catch(e) {
+            document.getElementById('providers-list').innerHTML = '<div class="muted">Error loading providers</div>';
+        }
+    }
+
+    async function testProvider(id) {
+        try {
+            var res = await fetch('/api/llm/providers/test', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: id})
+            });
+            var result = res.ok ? await res.json() : {reachable:false,error:'HTTP ' + res.status};
+            if (result.reachable) {
+                var authNote = result.authorized === false ? ' — auth failed' : '';
+                alert('Reachable! Status: ' + result.statusCode + authNote + ', ' + result.durationMs + 'ms');
+            } else {
+                alert('Unreachable: ' + (result.error || 'unknown'));
+            }
+        } catch(e) {
+            alert('Test failed: ' + e.message);
+        }
+    }
+
+    function showProviderForm() {
+        editingId = null;
+        document.getElementById('provider-form-title').textContent = 'New Provider';
+        document.getElementById('prov-name').value = '';
+        document.getElementById('prov-baseUrl').value = '';
+        document.getElementById('prov-apiKey').value = '';
+        document.getElementById('prov-apiType').value = 'ollama';
+        document.getElementById('prov-apiMode').value = 'chat';
+        document.getElementById('prov-save-btn').textContent = 'Save';
+        document.getElementById('provider-form').style.display = 'block';
+    }
+
+    function hideProviderForm() {
+        document.getElementById('provider-form').style.display = 'none';
+        editingId = null;
+    }
+
+    async function editProvider(id) {
+        try {
+            var res = await fetch('/api/llm/providers/get', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: id})
+            });
+            if (!res.ok) return;
+            var p = await res.json();
+            editingId = id;
+            document.getElementById('provider-form-title').textContent = 'Edit Provider';
+            document.getElementById('prov-name').value = p.name || '';
+            document.getElementById('prov-baseUrl').value = p.baseUrl || '';
+            document.getElementById('prov-apiKey').value = p.apiKey || '';
+            document.getElementById('prov-apiType').value = p.apiType || 'ollama';
+            document.getElementById('prov-apiMode').value = p.apiMode || 'chat';
+            document.getElementById('prov-save-btn').textContent = 'Update';
+            document.getElementById('provider-form').style.display = 'block';
+        } catch(e) {}
+    }
+
+    async function saveProvider() {
+        var body = {
+            name: document.getElementById('prov-name').value.trim(),
+            baseUrl: document.getElementById('prov-baseUrl').value.trim(),
+            apiKey: document.getElementById('prov-apiKey').value.trim() || null,
+            apiType: document.getElementById('prov-apiType').value,
+            apiMode: document.getElementById('prov-apiMode').value
+        };
+        var url = editingId ? '/api/llm/providers/patch' : '/api/llm/providers';
+        if (editingId) body.id = editingId;
+        try {
+            var res = await fetch(url, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body)
+            });
+            if (!res.ok) {
+                var err = await res.json();
+                alert('Error: ' + (err.error || res.status));
+                return;
+            }
+            hideProviderForm();
+            loadProviders();
+        } catch(e) {
+            alert('Request failed: ' + e.message);
+        }
+    }
+
+    async function deleteProvider(id) {
+        if (!confirm('Delete this provider?')) return;
+        try {
+            await fetch('/api/llm/providers/delete', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: id})
+            });
+            loadProviders();
+        } catch(e) {}
+    }
+
+    // ── MODELS ─────────────────────────────────────────────────
+
+    async function loadModels() {
+        try {
+            var [modelsRes, provRes] = await Promise.all([
+                fetch('/api/llm/models'),
+                fetch('/api/llm/providers')
+            ]);
+            var models = modelsRes.ok ? await modelsRes.json() : [];
+            var providers = provRes.ok ? await provRes.json() : [];
+            var provMap = {};
+            providers.forEach(function(p) { provMap[p.id] = p.name; });
+
+            var html = '';
+            if (models.length === 0) {
+                html = '<div class="empty-state-compact">No models yet. Create one above.</div>';
+            } else {
+                html = '<table><thead><tr><th>Nice Name</th><th>Provider Name</th><th>Provider</th><th></th></tr></thead><tbody>';
+                models.forEach(function(m) {
+                    html += '<tr>'
+                        + '<td><strong>' + esc(m.niceName) + '</strong></td>'
+                        + '<td class="muted small">' + esc(m.providerName) + '</td>'
+                        + '<td>' + esc(provMap[m.providerId] || m.providerId) + '</td>'
+                        + '<td>'
+                        + '<button class="btn btn-small" onclick="editModel(\'' + m.id + '\')">Edit</button> '
+                        + '<button class="btn btn-small btn-danger" onclick="deleteModel(\'' + m.id + '\')">Del</button>'
+                        + '</td></tr>';
+                });
+                html += '</tbody></table>';
+            }
+            document.getElementById('models-list').innerHTML = html;
+        } catch(e) {
+            document.getElementById('models-list').innerHTML = '<div class="muted">Error loading models</div>';
+        }
+    }
+
+    async function populateProviderSelect(selectId) {
+        try {
+            var res = await fetch('/api/llm/providers');
+            var providers = res.ok ? await res.json() : [];
+            var sel = document.getElementById(selectId);
+            sel.innerHTML = '';
+            providers.forEach(function(p) {
+                var opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = p.name + ' (' + p.apiType + ')';
+                sel.appendChild(opt);
+            });
+        } catch(e) {}
+    }
+
+    function showModelForm() {
+        editingId = null;
+        document.getElementById('model-form-title').textContent = 'New Model';
+        document.getElementById('model-niceName').value = '';
+        document.getElementById('model-providerName').value = '';
+        document.getElementById('model-save-btn').textContent = 'Save';
+        populateProviderSelect('model-providerId');
+        document.getElementById('model-form').style.display = 'block';
+    }
+
+    function hideModelForm() {
+        document.getElementById('model-form').style.display = 'none';
+        editingId = null;
+    }
+
+    async function editModel(id) {
+        try {
+            var res = await fetch('/api/llm/models/' + id);
+            if (!res.ok) return;
+            var m = await res.json();
+            editingId = id;
+            document.getElementById('model-form-title').textContent = 'Edit Model';
+            document.getElementById('model-niceName').value = m.niceName || '';
+            document.getElementById('model-providerName').value = m.providerName || '';
+            document.getElementById('model-save-btn').textContent = 'Update';
+            await populateProviderSelect('model-providerId');
+            document.getElementById('model-providerId').value = m.providerId || '';
+            document.getElementById('model-form').style.display = 'block';
+        } catch(e) {}
+    }
+
+    async function saveModel() {
+        var body = {
+            niceName: document.getElementById('model-niceName').value.trim(),
+            providerName: document.getElementById('model-providerName').value.trim(),
+            providerId: document.getElementById('model-providerId').value
+        };
+        var method = editingId ? 'PATCH' : 'POST';
+        var url = editingId ? '/api/llm/models/' + editingId : '/api/llm/models';
+        try {
+            var res = await fetch(url, {
+                method: method,
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body)
+            });
+            if (!res.ok) {
+                var err = await res.json();
+                alert('Error: ' + (err.error || res.status));
+                return;
+            }
+            hideModelForm();
+            loadModels();
+        } catch(e) {
+            alert('Request failed: ' + e.message);
+        }
+    }
+
+    async function deleteModel(id) {
+        if (!confirm('Delete this model?')) return;
+        try {
+            await fetch('/api/llm/models/' + id, {method: 'DELETE'});
+            loadModels();
+        } catch(e) {}
+    }
+
+    // ── PERSONALITIES ─────────────────────────────────────────
+
+    async function loadPersonalities() {
+        try {
+            var res = await fetch('/api/llm/personalities');
+            var personalities = res.ok ? await res.json() : [];
+            var html = '';
+            if (personalities.length === 0) {
+                html = '<div class="empty-state-compact">No personalities yet. Create one above.</div>';
+            } else {
+                html = '<table><thead><tr><th>Nice Name</th><th>System Prompt</th><th>Temp</th><th>Top-P</th><th></th></tr></thead><tbody>';
+                personalities.forEach(function(p) {
+                    var prompt = (p.systemPrompt || '').substring(0, 60) + ((p.systemPrompt || '').length > 60 ? '\u2026' : '');
+                    html += '<tr>'
+                        + '<td><strong>' + esc(p.niceName) + '</strong></td>'
+                        + '<td class="muted small">' + esc(prompt || '\u2014') + '</td>'
+                        + '<td>' + (p.temperature >= 0 ? p.temperature.toFixed(2) : '\u2014') + '</td>'
+                        + '<td>' + (p.topP >= 0 ? p.topP.toFixed(2) : '\u2014') + '</td>'
+                        + '<td>'
+                        + '<button class="btn btn-small" onclick="editPersonality(\'' + p.id + '\')">Edit</button> '
+                        + '<button class="btn btn-small btn-danger" onclick="deletePersonality(\'' + p.id + '\')">Del</button>'
+                        + '</td></tr>';
+                });
+                html += '</tbody></table>';
+            }
+            document.getElementById('personalities-list').innerHTML = html;
+        } catch(e) {
+            document.getElementById('personalities-list').innerHTML = '<div class="muted">Error loading personalities</div>';
+        }
+    }
+
+    function showPersonalityForm() {
+        editingId = null;
+        document.getElementById('personality-form-title').textContent = 'New Personality';
+        document.getElementById('pers-niceName').value = '';
+        document.getElementById('pers-systemPrompt').value = '';
+        document.getElementById('pers-temperature').value = '-1';
+        document.getElementById('pers-minP').value = '-1';
+        document.getElementById('pers-topP').value = '-1';
+        document.getElementById('pers-topK').value = '-1';
+        document.getElementById('pers-frequencyPenalty').value = '-1';
+        document.getElementById('pers-presencePenalty').value = '-1';
+        document.getElementById('pers-reasoningEffort').value = '';
+        document.getElementById('pers-save-btn').textContent = 'Save';
+        document.getElementById('personality-form').style.display = 'block';
+    }
+
+    function hidePersonalityForm() {
+        document.getElementById('personality-form').style.display = 'none';
+        editingId = null;
+    }
+
+    async function editPersonality(id) {
+        try {
+            var res = await fetch('/api/llm/personalities/' + id);
+            if (!res.ok) return;
+            var p = await res.json();
+            editingId = id;
+            document.getElementById('personality-form-title').textContent = 'Edit Personality';
+            document.getElementById('pers-niceName').value = p.niceName || '';
+            document.getElementById('pers-systemPrompt').value = p.systemPrompt || '';
+            document.getElementById('pers-temperature').value = p.temperature != null ? p.temperature : -1;
+            document.getElementById('pers-minP').value = p.minP != null ? p.minP : -1;
+            document.getElementById('pers-topP').value = p.topP != null ? p.topP : -1;
+            document.getElementById('pers-topK').value = p.topK != null ? p.topK : -1;
+            document.getElementById('pers-frequencyPenalty').value = p.frequencyPenalty != null ? p.frequencyPenalty : -1;
+            document.getElementById('pers-presencePenalty').value = p.presencePenalty != null ? p.presencePenalty : -1;
+            document.getElementById('pers-reasoningEffort').value = p.reasoningEffort || '';
+            document.getElementById('pers-save-btn').textContent = 'Update';
+            document.getElementById('personality-form').style.display = 'block';
+        } catch(e) {}
+    }
+
+    async function savePersonality() {
+        var body = {
+            niceName: document.getElementById('pers-niceName').value.trim(),
+            systemPrompt: document.getElementById('pers-systemPrompt').value.trim() || null,
+            temperature: parseFloat(document.getElementById('pers-temperature').value),
+            minP: parseFloat(document.getElementById('pers-minP').value),
+            topP: parseFloat(document.getElementById('pers-topP').value),
+            topK: parseFloat(document.getElementById('pers-topK').value),
+            frequencyPenalty: parseFloat(document.getElementById('pers-frequencyPenalty').value),
+            presencePenalty: parseFloat(document.getElementById('pers-presencePenalty').value),
+            reasoningEffort: document.getElementById('pers-reasoningEffort').value.trim() || null
+        };
+        var method = editingId ? 'PATCH' : 'POST';
+        var url = editingId ? '/api/llm/personalities/' + editingId : '/api/llm/personalities';
+        try {
+            var res = await fetch(url, {
+                method: method,
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body)
+            });
+            if (!res.ok) {
+                var err = await res.json();
+                alert('Error: ' + (err.error || res.status));
+                return;
+            }
+            hidePersonalityForm();
+            loadPersonalities();
+        } catch(e) {
+            alert('Request failed: ' + e.message);
+        }
+    }
+
+    async function deletePersonality(id) {
+        if (!confirm('Delete this personality?')) return;
+        try {
+            await fetch('/api/llm/personalities/' + id, {method: 'DELETE'});
+            loadPersonalities();
+        } catch(e) {}
+    }
+
+    // ── AGENTS ────────────────────────────────────────────────
+
+    async function loadAgents() {
+        try {
+            var [agentsRes, provRes, modelRes, persRes] = await Promise.all([
+                fetch('/api/llm/agents'),
+                fetch('/api/llm/providers'),
+                fetch('/api/llm/models'),
+                fetch('/api/llm/personalities')
+            ]);
+            var agents = agentsRes.ok ? await agentsRes.json() : [];
+            var providers = provRes.ok ? await provRes.json() : [];
+            var models = modelRes.ok ? await modelRes.json() : [];
+            var personalities = persRes.ok ? await persRes.json() : [];
+            var provMap = {}, modelMap = {}, persMap = {};
+            providers.forEach(function(p) { provMap[p.id] = p.name; });
+            models.forEach(function(m) { modelMap[m.id] = m.niceName; });
+            personalities.forEach(function(p) { persMap[p.id] = p.niceName; });
+
+            var html = '';
+            if (agents.length === 0) {
+                html = '<div class="empty-state-compact">No agents yet. Create one above.</div>';
+            } else {
+                html = '<table><thead><tr><th>Nice Name</th><th>Provider</th><th>Model</th><th>Personality</th><th>Tool Preset</th><th></th></tr></thead><tbody>';
+                agents.forEach(function(a) {
+                    html += '<tr>'
+                        + '<td><strong>' + esc(a.niceName) + '</strong></td>'
+                        + '<td>' + esc(provMap[a.providerId] || a.providerId) + '</td>'
+                        + '<td>' + esc(modelMap[a.modelId] || a.modelId) + '</td>'
+                        + '<td>' + esc(persMap[a.personalityId] || a.personalityId) + '</td>'
+                        + '<td class="muted small">' + esc(a.toolPreset || '\u2014') + '</td>'
+                        + '<td>'
+                        + '<button class="btn btn-small" onclick="editAgent(\'' + a.id + '\')">Edit</button> '
+                        + '<button class="btn btn-small btn-danger" onclick="deleteAgent(\'' + a.id + '\')">Del</button>'
+                        + '</td></tr>';
+                });
+                html += '</tbody></table>';
+            }
+            document.getElementById('agents-list').innerHTML = html;
+        } catch(e) {
+            document.getElementById('agents-list').innerHTML = '<div class="muted">Error loading agents</div>';
+        }
+    }
+
+    var providerModes = {}; // providerId -> apiMode
+
+    async function populateAgentSelects() {
+        try {
+            var [provRes, modelRes, persRes] = await Promise.all([
+                fetch('/api/llm/providers'),
+                fetch('/api/llm/models'),
+                fetch('/api/llm/personalities')
+            ]);
+            var providers = provRes.ok ? await provRes.json() : [];
+            var models = modelRes.ok ? await modelRes.json() : [];
+            var personalities = persRes.ok ? await persRes.json() : [];
+
+            providerModes = {};
+            ['agent-providerId','agent-modelId','agent-personalityId'].forEach(function(id) {
+                document.getElementById(id).innerHTML = '';
+            });
+
+            providers.forEach(function(p) {
+                providerModes[p.id] = p.apiMode || 'chat';
+                var opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = p.name + ' (' + p.apiType + ')';
+                document.getElementById('agent-providerId').appendChild(opt);
+            });
+            models.forEach(function(m) {
+                var opt = document.createElement('option');
+                opt.value = m.id;
+                opt.textContent = m.niceName;
+                document.getElementById('agent-modelId').appendChild(opt);
+            });
+            personalities.forEach(function(p) {
+                var opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = p.niceName;
+                document.getElementById('agent-personalityId').appendChild(opt);
+            });
+
+            updateToolPresetState();
+        } catch(e) {}
+    }
+
+    function updateToolPresetState() {
+        var provId = document.getElementById('agent-providerId').value;
+        var mode = providerModes[provId] || 'chat';
+        var input = document.getElementById('agent-toolPreset');
+        if (mode === 'completions') {
+            input.disabled = true;
+            input.value = '';
+            input.placeholder = 'disabled — completions mode has no tool support';
+        } else {
+            input.disabled = false;
+            input.placeholder = 'e.g. coding-tools';
+        }
+    }
+
+    function showAgentForm() {
+        editingId = null;
+        document.getElementById('agent-form-title').textContent = 'New Agent';
+        document.getElementById('agent-niceName').value = '';
+        document.getElementById('agent-toolPreset').value = '';
+        document.getElementById('agent-save-btn').textContent = 'Save';
+        populateAgentSelects();
+        document.getElementById('agent-form').style.display = 'block';
+    }
+
+    function hideAgentForm() {
+        document.getElementById('agent-form').style.display = 'none';
+        editingId = null;
+    }
+
+    async function editAgent(id) {
+        try {
+            var res = await fetch('/api/llm/agents/' + id);
+            if (!res.ok) return;
+            var a = await res.json();
+            editingId = id;
+            document.getElementById('agent-form-title').textContent = 'Edit Agent';
+            document.getElementById('agent-niceName').value = a.niceName || '';
+            document.getElementById('agent-toolPreset').value = a.toolPreset || '';
+            document.getElementById('agent-save-btn').textContent = 'Update';
+            await populateAgentSelects();
+            document.getElementById('agent-providerId').value = a.providerId || '';
+            document.getElementById('agent-modelId').value = a.modelId || '';
+            document.getElementById('agent-personalityId').value = a.personalityId || '';
+            document.getElementById('agent-form').style.display = 'block';
+        } catch(e) {}
+    }
+
+    async function saveAgent() {
+        var body = {
+            niceName: document.getElementById('agent-niceName').value.trim(),
+            providerId: document.getElementById('agent-providerId').value,
+            modelId: document.getElementById('agent-modelId').value,
+            personalityId: document.getElementById('agent-personalityId').value,
+            toolPreset: document.getElementById('agent-toolPreset').value.trim() || null
+        };
+        var method = editingId ? 'PATCH' : 'POST';
+        var url = editingId ? '/api/llm/agents/' + editingId : '/api/llm/agents';
+        try {
+            var res = await fetch(url, {
+                method: method,
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body)
+            });
+            if (!res.ok) {
+                var err = await res.json();
+                alert('Error: ' + (err.error || res.status));
+                return;
+            }
+            hideAgentForm();
+            loadAgents();
+        } catch(e) {
+            alert('Request failed: ' + e.message);
+        }
+    }
+
+    async function deleteAgent(id) {
+        if (!confirm('Delete this agent?')) return;
+        try {
+            await fetch('/api/llm/agents/' + id, {method: 'DELETE'});
+            loadAgents();
+        } catch(e) {}
+    }
+
+    // ── TEST ──────────────────────────────────────────────────
+
+    async function loadTestTab() {
+        try {
+            var res = await fetch('/api/llm/agents');
+            var agents = res.ok ? await res.json() : [];
+            var sel = document.getElementById('test-agent-select');
+            sel.innerHTML = '';
+            agents.forEach(function(a) {
+                var opt = document.createElement('option');
+                opt.value = a.niceName;
+                opt.textContent = a.niceName;
+                sel.appendChild(opt);
+            });
+            if (agents.length === 0) {
+                sel.innerHTML = '<option value="">-- No agents configured --</option>';
+            }
+        } catch(e) {}
+    }
+
+    async function runAgentTest() {
+        var agentName = document.getElementById('test-agent-select').value;
+        var prompt = document.getElementById('test-prompt').value.trim();
+        if (!agentName || !prompt) {
+            alert('Select an agent and enter a prompt.');
+            return;
+        }
+
+        var resultDiv = document.getElementById('test-result');
+        resultDiv.innerHTML = '<div class="card"><div class="card-body"><div class="muted">Running\u2026</div></div></div>';
+
+        var btn = document.getElementById('test-run-btn');
+        btn.disabled = true;
+        btn.textContent = 'Running\u2026';
+
+        try {
+            var res = await fetch('/api/llm/execute', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({agentName: agentName, requestPrompt: prompt})
+            });
+            var result = await res.json();
+
+            var statusPill = result.status === 'success' ? 'pill-done' : (result.status === 'error' ? 'pill-failed' : 'pill-doing');
+            var html = '<div class="card">'
+                + '<div class="card-body">'
+                + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">'
+                + '<h3 style="margin:0;">Result</h3>'
+                + '<span class="pill ' + statusPill + '">' + esc(result.status) + '</span>'
+                + '</div>'
+                + '<div style="background:var(--panel-2);border-radius:8px;padding:14px 16px;white-space:pre-wrap;font-family:monospace;font-size:13px;max-height:600px;overflow-y:auto;">'
+                + esc(result.payload || '')
+                + '</div>'
+                + '</div></div>';
+            resultDiv.innerHTML = html;
+        } catch(e) {
+            resultDiv.innerHTML = '<div class="card"><div class="card-body"><span style="color:var(--danger);">Request failed: ' + esc(e.message) + '</span></div></div>';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Run';
+        }
+    }
+
+    // ── init ──────────────────────────────────────────────────
+    switchTab('providers');
+    </script>
+</div>
+</body>
+</html>

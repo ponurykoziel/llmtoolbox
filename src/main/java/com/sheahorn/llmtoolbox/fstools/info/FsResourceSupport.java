@@ -82,4 +82,12 @@ public abstract class FsResourceSupport {
     protected String normalizePath(String rawPath) {
         return resolvePath(rawPath).toString();
     }
+
+    /** True if the given path is the allowed root itself. */
+    protected boolean isAllowedRoot(Path path) {
+        if (path == null) {
+            return false;
+        }
+        return path.equals(Path.of(allowedRoot).toAbsolutePath().normalize());
+    }
 }

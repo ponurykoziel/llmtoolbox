@@ -1,12 +1,13 @@
 package com.sheahorn.llmtoolbox.calculators.common;
 
+import com.sheahorn.llmtoolbox.llm.ToolBean;
+
 /**
  * Marker interface for all calculator classes in the {@code com.sheahorn.llmtoolbox.calculators} package.
  * <p>
- * This interface provides no contract methods. It exists purely for discoverability:
- * use "Find Usages" (or equivalent) on this type in your IDE to locate every calculator
- * in the project.
+ * Extends {@link ToolBean} so all calculators are automatically discoverable
+ * by the LLM tool dispatcher without additional per-class changes.
  * </p>
  */
-public interface Calculator {
+public interface Calculator extends ToolBean {
 }

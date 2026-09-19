@@ -1,3 +1,9 @@
 target/
 .idea/
 data/
+browser/config.yaml
+browser/.venv/
+browser/profiles/
+browser/__pycache__/
+SESSION-HANDOFF.md
+build.sh

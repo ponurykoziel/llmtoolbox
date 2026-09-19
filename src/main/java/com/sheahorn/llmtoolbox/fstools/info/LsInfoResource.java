@@ -7,11 +7,12 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import com.sheahorn.llmtoolbox.llm.ToolBean;
 
 @Path("/api/tools/fs/ls-info")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
-public class LsInfoResource extends FsResourceSupport {
+public class LsInfoResource extends FsResourceSupport implements ToolBean {
 
     @Inject
     Executor executor;

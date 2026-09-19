@@ -8,12 +8,13 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import com.sheahorn.llmtoolbox.llm.ToolBean;
 
 @Path("/api/tools/devops/docker")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
 @LogToolCall
-public class DockerResource {
+public class DockerResource implements ToolBean {
 
     @Inject
     Executor executor;

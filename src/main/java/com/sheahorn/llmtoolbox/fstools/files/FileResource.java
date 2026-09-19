@@ -8,6 +8,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import com.sheahorn.llmtoolbox.llm.ToolBean;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -21,7 +22,7 @@ import java.time.Instant;
 @jakarta.ws.rs.Path("/api/tools/fs/files")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
-public class FileResource extends FsResourceSupport {
+public class FileResource extends FsResourceSupport implements ToolBean {
 
     @ConfigProperty(name = "llmtoolbox.files.max-read-bytes", defaultValue = "1048576")
     long maxReadBytes;
@@ -206,13 +207,13 @@ public class FileResource extends FsResourceSupport {
     }
 
     @Operation(
-            operationId = "fs_files_move",
+            operationId = "fs_files_move_file",
             summary = "Renames a regular file inside the allowed root, refusing if the target exists"
     )
     @POST
-    @jakarta.ws.rs.Path("/move")
-    public ExecutionResponse move(MoveFileRequestDto request) {
-        return wrap("move "
+    @jakarta.ws.rs.Path("/move-file")
+    public ExecutionResponse moveFile(MoveFileRequestDto request) {
+        return wrap("move-file "
                 + quote(request == null ? null : request.sourcePath)
                 + " "
                 + quote(request == null ? null : request.targetPath), () -> {
@@ -231,6 +232,73 @@ public class FileResource extends FsResourceSupport {
             Files.move(source, target);
 
             return "moved\n";
+        });
+    }
+
+    @Operation(
+            operationId = "fs_files_move_dir",
+            summary = "Renames a directory inside the allowed root, refusing if the target exists"
+    )
+    @POST
+    @jakarta.ws.rs.Path("/move-dir")
+    public ExecutionResponse moveDir(MoveDirRequestDto request) {
+        return wrap("move-dir "
+                + quote(request == null ? null : request.sourcePath)
+                + " "
+                + quote(request == null ? null : request.targetPath), () -> {
+
+            if (request == null) {
+                throw new IllegalArgumentException("Request is required");
+            }
+
+            Path source = existingDirectory(request.sourcePath);
+
+            if (isAllowedRoot(source)) {
+                throw new IllegalArgumentException("cannot move the allowed root itself");
+            }
+
+            Path target = resolvePath(request.targetPath);
+
+            if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
+                throw new IllegalArgumentException("target already exists");
+            }
+
+            if (target.startsWith(source)) {
+                throw new IllegalArgumentException("target is inside the source directory");
+            }
+
+            Files.move(source, target);
+
+            return "moved\n";
+        });
+    }
+
+    @Operation(
+            operationId = "fs_files_copy_file",
+            summary = "Copies a single regular file from a source path to a target path, both inside the allowed root"
+    )
+    @POST
+    @jakarta.ws.rs.Path("/copy-file")
+    public ExecutionResponse copyFile(CopyFileRequestDto request) {
+        return wrap("copy-file "
+                + quote(request == null ? null : request.sourcePath)
+                + " "
+                + quote(request == null ? null : request.targetPath), () -> {
+
+            if (request == null) {
+                throw new IllegalArgumentException("Request is required");
+            }
+
+            Path source = existingRegularFile(request.sourcePath);
+            Path target = resolvePath(request.targetPath);
+
+            if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
+                throw new IllegalArgumentException("target already exists");
+            }
+
+            Files.copy(source, target);
+
+            return "copied\n";
         });
     }
 

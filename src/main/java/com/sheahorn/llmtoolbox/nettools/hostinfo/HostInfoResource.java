@@ -7,11 +7,12 @@ import jakarta.ws.rs.core.MediaType;
 import com.sheahorn.llmtoolbox.execution.ExecutionResponse;
 import com.sheahorn.llmtoolbox.execution.Executor;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import com.sheahorn.llmtoolbox.llm.ToolBean;
 
 @Path("/api/tools/net/host")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
-public class HostInfoResource {
+public class HostInfoResource implements ToolBean {
 
     @Inject
     Executor executor;

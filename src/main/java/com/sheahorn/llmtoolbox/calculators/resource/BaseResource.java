@@ -1,5 +1,12 @@
-package com.sheahorn.llmtoolbox.calculators;
+package com.sheahorn.llmtoolbox.calculators.resource;
 
+import com.sheahorn.llmtoolbox.calculators.BaseCalculator;
+import com.sheahorn.llmtoolbox.calculators.BaseConversionRequestDto;
+import com.sheahorn.llmtoolbox.calculators.BitwiseRequestDto;
+import com.sheahorn.llmtoolbox.calculators.ByteComposeRequestDto;
+import com.sheahorn.llmtoolbox.calculators.ByteDecomposeRequestDto;
+import com.sheahorn.llmtoolbox.calculators.TextResponse;
+import com.sheahorn.llmtoolbox.calculators.common.Calculator;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import org.eclipse.microprofile.openapi.annotations.Operation;
@@ -7,7 +14,7 @@ import org.eclipse.microprofile.openapi.annotations.Operation;
 @Path("/api/tools/calculator")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
-public class BaseResource {
+public class BaseResource implements Calculator {
 
     private final BaseCalculator calc = new BaseCalculator();
 

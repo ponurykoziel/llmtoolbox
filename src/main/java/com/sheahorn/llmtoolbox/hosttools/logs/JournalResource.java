@@ -7,11 +7,12 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import com.sheahorn.llmtoolbox.llm.ToolBean;
 
 @Path("/api/tools/host/logs")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
-public class JournalResource {
+public class JournalResource implements ToolBean {
 
     private static final int DEFAULT_LINES = 200;
     private static final int MAX_LINES = 5000;

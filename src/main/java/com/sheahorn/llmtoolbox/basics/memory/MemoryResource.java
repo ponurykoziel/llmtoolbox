@@ -5,6 +5,7 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import com.sheahorn.llmtoolbox.llm.ToolBean;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -12,7 +13,7 @@ import java.util.stream.Collectors;
 @Path("/api/tools/basics/memory")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
-public class MemoryResource {
+public class MemoryResource implements ToolBean {
 
     @Operation(
             operationId = "memory_add",
@@ -39,12 +40,16 @@ public class MemoryResource {
             operationId = "memory_get_by_id",
             summary = "Returns a single memory entry by its ID"
     )
-    @GET
-    @Path("/{id}")
-    public MemoryEntryResponse getById(@PathParam("id") Long id) {
-        MemoryEntry entry = MemoryEntry.findById(id);
+    @POST
+    @Path("/get")
+    public MemoryEntryResponse getById(MemoryIdRequest request) {
+        if (request == null || request.id == null) {
+            throw new IllegalArgumentException("id is required");
+        }
+
+        MemoryEntry entry = MemoryEntry.findById(request.id);
         if (entry == null) {
-            throw new NotFoundException("memory entry not found: " + id);
+            throw new NotFoundException("memory entry not found: " + request.id);
         }
         return MemoryEntryResponse.from(entry);
     }
@@ -84,14 +89,18 @@ public class MemoryResource {
             operationId = "memory_remove",
             summary = "Deletes a memory entry by its ID"
     )
-    @DELETE
-    @Path("/{id}")
+    @POST
+    @Path("/remove")
     @Transactional
-    public Response remove(@PathParam("id") Long id) {
-        boolean deleted = MemoryEntry.deleteById(id);
-        if (!deleted) {
-            throw new NotFoundException("memory entry not found: " + id);
+    public Response remove(MemoryIdRequest request) {
+        if (request == null || request.id == null) {
+            throw new IllegalArgumentException("id is required");
         }
-        return Response.ok("{\"deleted\":" + id + "}").build();
+
+        boolean deleted = MemoryEntry.deleteById(request.id);
+        if (!deleted) {
+            throw new NotFoundException("memory entry not found: " + request.id);
+        }
+        return Response.ok("{\"deleted\":" + request.id + "}").build();
     }
 }

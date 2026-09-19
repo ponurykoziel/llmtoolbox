@@ -11,11 +11,12 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import com.sheahorn.llmtoolbox.llm.ToolBean;
 
 @Path("/api/tools/fs/head")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
-public class HeadResource extends FsResourceSupport {
+public class HeadResource extends FsResourceSupport implements ToolBean {
 
     private static final int DEFAULT_LINES = 200;
     private static final int MAX_LINES = 5000;
