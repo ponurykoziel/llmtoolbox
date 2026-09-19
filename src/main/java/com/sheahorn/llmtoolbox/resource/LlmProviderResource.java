@@ -132,18 +132,23 @@ public class LlmProviderResource implements ToolBean {
                     .connectTimeout(Duration.ofSeconds(5))
                     .build();
 
-            var req = HttpRequest.newBuilder()
+            HttpRequest.Builder req = HttpRequest.newBuilder()
                     .uri(URI.create(p.baseUrl))
                     .method("HEAD", HttpRequest.BodyPublishers.noBody())
-                    .timeout(Duration.ofSeconds(5))
-                    .build();
+                    .timeout(Duration.ofSeconds(5));
 
-            var resp = client.send(req, HttpResponse.BodyHandlers.discarding());
+            if (p.apiKey != null && !p.apiKey.isBlank()) {
+                req.header("Authorization", "Bearer " + p.apiKey);
+            }
+
+            var resp = client.send(req.build(), HttpResponse.BodyHandlers.discarding());
             long ms = Duration.between(start, Instant.now()).toMillis();
 
+            boolean authorized = resp.statusCode() != 401 && resp.statusCode() != 403;
             return Response.ok(Map.of(
                     "reachable", true,
                     "statusCode", resp.statusCode(),
+                    "authorized", authorized,
                     "durationMs", ms
             )).build();
         } catch (Exception e) {

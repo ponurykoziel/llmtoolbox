@@ -194,10 +194,15 @@
 
     async function testProvider(id) {
         try {
-            var res = await fetch('/api/llm/providers/' + id + '/test', {method:'POST'});
+            var res = await fetch('/api/llm/providers/test', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: id})
+            });
             var result = res.ok ? await res.json() : {reachable:false,error:'HTTP ' + res.status};
             if (result.reachable) {
-                alert('Reachable! Status: ' + result.statusCode + ', ' + result.durationMs + 'ms');
+                var authNote = result.authorized === false ? ' — auth failed' : '';
+                alert('Reachable! Status: ' + result.statusCode + authNote + ', ' + result.durationMs + 'ms');
             } else {
                 alert('Unreachable: ' + (result.error || 'unknown'));
             }
@@ -225,7 +230,11 @@
 
     async function editProvider(id) {
         try {
-            var res = await fetch('/api/llm/providers/' + id);
+            var res = await fetch('/api/llm/providers/get', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: id})
+            });
             if (!res.ok) return;
             var p = await res.json();
             editingId = id;
@@ -248,11 +257,11 @@
             apiType: document.getElementById('prov-apiType').value,
             apiMode: document.getElementById('prov-apiMode').value
         };
-        var method = editingId ? 'PATCH' : 'POST';
-        var url = editingId ? '/api/llm/providers/' + editingId : '/api/llm/providers';
+        var url = editingId ? '/api/llm/providers/patch' : '/api/llm/providers';
+        if (editingId) body.id = editingId;
         try {
             var res = await fetch(url, {
-                method: method,
+                method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(body)
             });
@@ -271,7 +280,11 @@
     async function deleteProvider(id) {
         if (!confirm('Delete this provider?')) return;
         try {
-            await fetch('/api/llm/providers/' + id, {method: 'DELETE'});
+            await fetch('/api/llm/providers/delete', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: id})
+            });
             loadProviders();
         } catch(e) {}
     }

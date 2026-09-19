@@ -170,7 +170,7 @@ public class LlmExecutionService {
                         String toolCallId = tc.has("id") ? tc.get("id").asText() : "call_" + round;
                         JsonNode function = tc.get("function");
                         String funcName = function != null && function.has("name") ? function.get("name").asText() : "unknown";
-                        String funcArgs = function != null && function.has("arguments") ? function.get("arguments").asText() : "{}";
+                        String funcArgs = extractToolArguments(function);
 
                         output.append("[ TOOL CALLED: ").append(funcName).append(" ").append(funcArgs).append(" ]\n");
 
@@ -356,6 +356,37 @@ public class LlmExecutionService {
     }
 
     // ── Helpers ─────────────────────────────────────────────────
+
+    /**
+     * Extracts the tool-call arguments as a JSON string, tolerating the
+     * variations providers emit: {@code arguments} may be a JSON string, an
+     * already-parsed object, or (in some Ollama/OpenWebUI responses) nested
+     * under a {@code parameters} key. Always returns a JSON object string.
+     */
+    private String extractToolArguments(JsonNode function) {
+        if (function == null) return "{}";
+
+        JsonNode args = function.get("arguments");
+        if (args == null || args.isMissingNode() || args.isNull()) {
+            args = function.get("parameters");
+        }
+        if (args == null || args.isMissingNode() || args.isNull()) {
+            return "{}";
+        }
+
+        if (args.isTextual()) {
+            String text = args.asText();
+            if (text == null || text.isBlank()) return "{}";
+            return text;
+        }
+
+        // Already a structured node (object/array) — re-serialize to a string.
+        try {
+            return MAPPER.writeValueAsString(args);
+        } catch (JsonProcessingException e) {
+            return "{}";
+        }
+    }
 
     private JsonNode extractMessage(JsonNode llmJson) {
         if (llmJson.has("message") && llmJson.get("message").isObject()) {

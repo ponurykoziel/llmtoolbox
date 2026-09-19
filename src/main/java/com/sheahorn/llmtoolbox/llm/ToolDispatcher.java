@@ -146,7 +146,8 @@ public class ToolDispatcher {
         List<Map<String, Object>> tools = new ArrayList<>();
         for (String opId : opIds) {
             String desc = functionCache.all().getOrDefault(opId, "");
-            tools.add(buildToolDef(opId, desc));
+            JsonNode schema = functionCache.schema(opId);
+            tools.add(buildToolDef(opId, desc, schema));
         }
         return tools;
     }
@@ -217,14 +218,18 @@ public class ToolDispatcher {
     // ── tool definition builder (unchanged) ───────────────────
 
     @SuppressWarnings("unchecked")
-    private Map<String, Object> buildToolDef(String operationId, String description) {
+    private Map<String, Object> buildToolDef(String operationId, String description, JsonNode schema) {
         Map<String, Object> func = new LinkedHashMap<>();
         func.put("name", operationId);
         func.put("description", description != null ? description : "");
 
         Map<String, Object> params = new LinkedHashMap<>();
-        params.put("type", "object");
-        params.put("additionalProperties", true);
+        if (schema != null && schema.isObject()) {
+            params = MAPPER.convertValue(schema, Map.class);
+        } else {
+            params.put("type", "object");
+            params.put("properties", new LinkedHashMap<>());
+        }
         func.put("parameters", params);
 
         Map<String, Object> tool = new LinkedHashMap<>();
