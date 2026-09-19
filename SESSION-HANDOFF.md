@@ -1,48 +1,90 @@
-# Session Handoff — 2026-09-06 (session 2)
+# Session Handoff — 2026-09-19 (session 3)
 
-**Project:** LLMToolbox (`00000087` under toolchain)  
-**Branch:** `release/1.8.0` (commit `a0f3f75` + uncommitted working-tree changes)  
+**Project:** LLMToolbox (`00000087` under toolchain)
+**Branch:** `release-1.8` (commit `9abe8ea`, pushed to `origin/release-1.8`)
 **Version:** 1.8.0
 
 ---
 
-## This session: fs move split (issue 00001154)
+## This session: LLM tool-calling hotfix
 
-**Feature:** `fs_files_move` split into `fs_files_move_file` (renamed) + `fs_files_move_dir` (new, dirs only). Code complete, UNCOMMITTED, awaiting user's personal verification (`mvn clean compile` + `mvn test` — user runs these, not Angelica).
+The LLM Calling subpage's tool execution was broken end-to-end. Three independent
+bugs, all now fixed and committed in `9abe8ea`.
 
-### Changed files (all in working tree, not staged)
-1. `fstools/files/FileResource.java` — `move` → `moveFile` (opId `fs_files_move_file`, REST `/move-file`); new `moveDir` (opId `fs_files_move_dir`, REST `/move-dir`): `existingDirectory` source (symlink-guarded), refuses moving the allowed root, refuses existing target (NOFOLLOW_LINKS), refuses target-inside-source (`target.startsWith(source)`), then `Files.move`.
-2. `fstools/files/MoveDirRequestDto.java` — NEW, `{sourcePath, targetPath}`.
-3. `fstools/info/FsResourceSupport.java` — added protected `isAllowedRoot(Path)` helper.
-4. `basics/presets/PresetDefaults.java` — SEED: daemon gets `fs_files_move_dir,fs_files_move_file`; builder gets `fs_files_move_file`. Hardcoded `fs` preset untouched (wildcard `fs_*` covers both).
-5. `README.md` — fs section prose (move-file, move-dir) + 1.8.0 changelog entry extended.
-6. `ADR/0013-llm-tool-naming-and-categorization.md` — new **Exceptions** section: `sleep` explicitly allowed as category-less operationId.
+### Bug 1 — empty parameter schemas
+`BuiltinFunctionCache.extractRequestSchema` used Jackson JSON Pointer
+(`op.at("/requestBody/content/application/json/schema")`). JSON Pointer splits on
+`/`, so the literal key `application/json` was parsed as two segments
+(`application` → `json`) and the lookup always missed → every tool got
+`{"properties": {}, "type": "object"}`.
 
-### User decisions (binding)
-- REST path renamed `/move` → `/move-file` (symmetry). Direct HTTP callers of `/move` break — accepted.
-- NO DB preset migration (existing deployments keep dead `fs_files_move` refs in DB presets) — accepted.
-- NO tests for this change yet — deferred.
-- User verifies personally. Do NOT run builds for this change.
-- Missing trailing newlines at EOF in FileResource.java + PresetDefaults.java (fs replace tool artifact) — user accepted, cosmetic.
+**Fix:** walk the tree with explicit `.get("requestBody").get("content")
+.get("application/json").get("schema")`. Added `resolveRefs` to inline `$ref`s
+(so enums like `DigRecordType`/`HttpVerb` are self-contained) and
+`markAllRequired` to emit `required: [all top-level props]` (ADR-0013 rule 4:
+every tool param is a body field).
 
-### After verification passes
-Commit on `release/1.8.0` (suggested msg: "fs_files_move split into fs_files_move_file + fs_files_move_dir; ADR-0013 sleep exception"), mark issue 00001154 DONE. No version bump — folded into unreleased 1.8.0.
+### Bug 2 — arguments silently dropped
+`LlmExecutionService` did `function.get("arguments").asText()`. Jackson's
+`asText()` on an **object** node returns `""`. Ollama returns `arguments` as a
+JSON *object* (OpenAI returns a string), so the args were silently emptied →
+`net_dig`/`net_curl` got `{}` → `"name is required"` / `"verb is required"`.
+
+**Fix:** new `extractToolArguments(function)` helper — string args returned
+as-is, object/array args re-serialized via `writeValueAsString`, falls back to
+`parameters` key then `{}`.
+
+### Bug 3 — provider subpage used removed path-param routes
+`llm.html` called `/api/llm/providers/{id}`, `/api/llm/providers/{id}/test`,
+`PATCH`/`DELETE` — but those routes were removed (ADR-0014 removed path-param
+binding). Provider CRUD now uses POST-body endpoints.
+
+**Fix:** `llm.html` switched to `/api/llm/providers/get|patch|delete|test` with
+JSON bodies. `LlmProviderResource` test endpoint now sends the `Authorization`
+header and reports an `authorized` flag (401/403 → false).
+
+### Files changed (all in commit 9abe8ea)
+1. `openapitools/BuiltinFunctionCache.java` — schema extraction + $ref inlining + required.
+2. `llm/ToolDispatcher.java` — attach resolved schema to tool defs.
+3. `llm/LlmExecutionService.java` — `extractToolArguments`.
+4. `resource/LlmProviderResource.java` — auth header + authorized flag on test.
+5. `resources/templates/llm.html` — POST-body provider endpoints.
+
+### Status / caveats
+- `mvn -B clean compile` passes (341 sources).
+- **Full test suite NOT run** — user should still run `mvn test`.
+- **Pushed to `origin/release-1.8`** (`9991e04..9abe8ea`).
+- **Uncommitted:** `build.sh` (untracked, `mvn clean package | less`) — not staged,
+  left for user to decide whether to track.
+- **Known pre-existing issue (NOT addressed):** tools with `@PathParam`
+  (`browser_interact_*`, `presets_{name}`) were already broken for in-process
+  dispatch before this session — ADR-0014 removed path-param binding but those
+  endpoints still declare path params. Separate bug to chase if browser tools
+  are needed.
+- **`required` over-constrains:** marks every declared field required, including
+  ones the backend actually defaults (e.g. `DigRequestDto.types`, `PingRequestDto.count`).
+  Harmless (LLM just always sends explicit values), but noted as a conscious choice.
 
 ---
 
-## Still pending from session 1 (unchanged)
+## Still pending (carried over from prior sessions, unchanged)
 
-1. **Push `release/1.8.0`** — currently tracks `origin/fix/browser-delete-stackoverflow` (pull-trick leftover). `git push -u origin release/1.8.0`.
-2. **Merge into main, push public** — `git checkout main && git merge release/1.8.0 && git push`. Origin/main still at 0ade7739 (1.6.1).
-3. **Purge branches** — local: `cargo_tools`, `fix/browser-delete-stackoverflow`; remote: also `fix-fs-ls-flat-500`, `git_and_docker`.
-4. **Optional pre-push review** — issue 00000C4F checklist (skipped by user decision so far; several items pre-verified).
+1. ~~**Push `release-1.8`**~~ — DONE this session (`9991e04..9abe8ea`).
+2. **Merge into main, push public** — `git checkout main && git merge release-1.8 && git push`.
+3. **Purge branches** — local: `cargo_tools`, `fix/browser-delete-stackoverflow`;
+   remote: `fix-fs-ls-flat-500`, `git_and_docker`.
+4. **Prior session's fs move split** (issue 00001154) — was UNCOMMITTED in the
+   previous handoff; verify whether it landed before this hotfix or still needs
+   committing.
 
-Governing tracker issues: 00001153 (pre-push plan), 00000C4F (review checklist), 00001154 (this feature).
+Governing tracker issues: 00001153 (pre-push plan), 00000C4F (review checklist),
+00001154 (fs move split).
 
 ## Key facts
 | Item | Value |
 |---|---|
-| main | 9186744 (ADR compliance pass) |
-| release/1.8.0 | a0f3f75 + uncommitted move-split work |
-| Tests at a0f3f75 | 1509 pass |
-| Tool surface | 236 methods, 53 ToolBeans, 415 functions (move split makes it 237/416 after rebuild) |
+| Branch | release-1.8 |
+| HEAD | 9abe8ea (this hotfix) |
+| Ahead of origin | 0 (pushed) |
+| Compile | clean (341 sources) |
+| Tests | NOT run this session |
