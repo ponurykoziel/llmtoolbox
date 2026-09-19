@@ -274,6 +274,35 @@ public class FileResource extends FsResourceSupport implements ToolBean {
     }
 
     @Operation(
+            operationId = "fs_files_copy_file",
+            summary = "Copies a single regular file from a source path to a target path, both inside the allowed root"
+    )
+    @POST
+    @jakarta.ws.rs.Path("/copy-file")
+    public ExecutionResponse copyFile(CopyFileRequestDto request) {
+        return wrap("copy-file "
+                + quote(request == null ? null : request.sourcePath)
+                + " "
+                + quote(request == null ? null : request.targetPath), () -> {
+
+            if (request == null) {
+                throw new IllegalArgumentException("Request is required");
+            }
+
+            Path source = existingRegularFile(request.sourcePath);
+            Path target = resolvePath(request.targetPath);
+
+            if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
+                throw new IllegalArgumentException("target already exists");
+            }
+
+            Files.copy(source, target);
+
+            return "copied\n";
+        });
+    }
+
+    @Operation(
             operationId = "fs_files_delete",
             summary = "Deletes a regular file inside the allowed root"
     )

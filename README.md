@@ -62,7 +62,7 @@ API endpoints also accept the session cookie, so a browser session works for bot
 
 ### Filesystem (`fs_*`)
 
-File CRUD (create, read, overwrite, append, replace, replace-regex, move-file, delete), directory operations (mkdir, rmdir, move-dir), listing (flat, recursive), pack-folder (concatenate a directory into a single text bundle), head/tail, df, du, lsblk, findmnt, ls-info, sha256sum. All paths are validated and confined to `llmtoolbox.files.allowed-root`. Symlink escapes are detected and blocked.
+File CRUD (create, read, overwrite, append, replace, replace-regex, copy-file, move-file, delete), directory operations (mkdir, rmdir, move-dir), listing (flat, recursive), pack-folder (concatenate a directory into a single text bundle), head/tail, df, du, lsblk, findmnt, ls-info, sha256sum. All paths are validated and confined to `llmtoolbox.files.allowed-root`. Symlink escapes are detected and blocked.
 
 ### Network (`net_*`)
 
