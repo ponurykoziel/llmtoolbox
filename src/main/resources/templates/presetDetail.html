@@ -35,10 +35,207 @@
         </div>
     </div>
 
+    <!-- Function Picker Modal -->
+    <div id="picker-overlay" class="picker-overlay" style="display:none;">
+        <div class="picker-modal">
+            <div class="picker-header">
+                <h3 style="margin:0;">Browse Functions</h3>
+                <button id="picker-cancel-top" class="edit-icon-btn" title="Close" style="font-size:18px;">&times;</button>
+            </div>
+            <div class="picker-body">
+                <div class="form-group" style="margin-bottom:10px;">
+                    <label>Filter by prefix</label>
+                    <input type="text" id="picker-filter" placeholder="Type to filter operation IDs…" autocomplete="off">
+                </div>
+                <div id="picker-list" class="picker-list">Loading&hellip;</div>
+            </div>
+            <div class="picker-footer">
+                <button id="picker-add-all" class="btn btn-primary" disabled>Add All</button>
+                <button id="picker-add-sel" class="btn btn-primary" disabled>Add Selected</button>
+                <button id="picker-cancel" class="btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <script th:inline="javascript">
     var presetName = /*[[${presetName}]]*/ '';
+    var allFunctions = [];
+    var selectedOpId = null;
 
     function esc(s) { return s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; }
+
+    // ── Load all functions (built-in + custom) for the picker ──
+    async function loadAllFunctions() {
+        try {
+            var [builtinRes, customRes] = await Promise.all([
+                fetch('/api/functions/builtin'),
+                fetch('/api/tools/functions').catch(function() { return {ok: false}; })
+            ]);
+
+            allFunctions = [];
+
+            if (builtinRes.ok) {
+                var builtins = await builtinRes.json();
+                builtins.forEach(function(f) {
+                    allFunctions.push({
+                        operationId: f.operationId,
+                        description: f.description || '',
+                        type: 'builtin'
+                    });
+                });
+            }
+
+            if (customRes.ok) {
+                var customFunctions = await customRes.json();
+                customFunctions.forEach(function(f) {
+                    allFunctions.push({
+                        operationId: f.operationId || f.id,
+                        description: f.input || '',
+                        type: 'custom'
+                    });
+                });
+            }
+
+            allFunctions.sort(function(a, b) {
+                return (a.operationId || '').toLowerCase().localeCompare((b.operationId || '').toLowerCase());
+            });
+        } catch(e) {
+            allFunctions = [];
+        }
+        renderResolved();
+    }
+
+    // ── Parse current prefixes from the prefixes textarea ──
+    function getCurrentPrefixes() {
+        var el = document.getElementById('edit-prefixes');
+        if (!el) return [];
+        var raw = el.value.trim();
+        if (!raw) return [];
+        return raw.split(',').map(function(s) { return s.trim(); }).filter(function(s) { return s.length > 0; });
+    }
+
+    // ── Check if an operationId is covered by current prefixes ──
+    function isCovered(opId, prefixes) {
+        for (var i = 0; i < prefixes.length; i++) {
+            var p = prefixes[i];
+            if (p.endsWith('*')) {
+                var prefix = p.substring(0, p.length - 1);
+                if (opId.startsWith(prefix)) return true;
+            } else {
+                if (opId === p) return true;
+            }
+        }
+        return false;
+    }
+
+    // ── Render resolved functions panel ──
+    function renderResolved() {
+        var panel = document.getElementById('resolved-panel');
+        if (!panel) return;
+        var prefixes = getCurrentPrefixes();
+        if (prefixes.length === 0) {
+            panel.textContent = 'Edit prefixes to see which functions they match.';
+            return;
+        }
+        var resolved = allFunctions.filter(function(f) {
+            return isCovered(f.operationId, prefixes);
+        });
+        if (resolved.length === 0) {
+            panel.textContent = 'No functions match the current prefixes.';
+            return;
+        }
+        var html = '<span class="resolved-count">' + resolved.length + ' function' + (resolved.length === 1 ? '' : 's') + ' matched:</span>';
+        resolved.forEach(function(f) {
+            html += '<span class="resolved-chip" title="' + esc(f.description || '') + '">' + esc(f.operationId) + '</span>';
+        });
+        panel.innerHTML = html;
+    }
+
+    // ── Render picker list ──
+    function renderPicker() {
+        var filterText = document.getElementById('picker-filter').value.trim().toLowerCase();
+        var prefixes = getCurrentPrefixes();
+        var container = document.getElementById('picker-list');
+
+        var visible = allFunctions.filter(function(f) {
+            var opId = (f.operationId || '').toLowerCase();
+            if (filterText && !opId.startsWith(filterText)) return false;
+            if (isCovered(f.operationId, prefixes)) return false;
+            return true;
+        });
+
+        if (visible.length === 0) {
+            container.innerHTML = '<div class="empty-state empty-state-compact"><div class="muted">No matching functions</div></div>';
+        } else {
+            var html = '';
+            visible.forEach(function(f) {
+                var selClass = (selectedOpId === f.operationId) ? ' picker-row-selected' : '';
+                html += '<div class="picker-row' + selClass + '" data-opid="' + esc(f.operationId) + '">';
+                html += '<span class="picker-opid">' + esc(f.operationId) + '</span>';
+                html += '<span class="picker-desc muted small">' + esc(f.description || '') + '</span>';
+                html += '</div>';
+            });
+            container.innerHTML = html;
+
+            container.querySelectorAll('.picker-row').forEach(function(row) {
+                row.addEventListener('click', function() {
+                    container.querySelectorAll('.picker-row').forEach(function(r) { r.classList.remove('picker-row-selected'); });
+                    row.classList.add('picker-row-selected');
+                    selectedOpId = row.getAttribute('data-opid');
+                    updatePickerButtons();
+                });
+            });
+        }
+
+        updatePickerButtons();
+    }
+
+    function updatePickerButtons() {
+        var filterText = document.getElementById('picker-filter').value.trim();
+        var addAllBtn = document.getElementById('picker-add-all');
+        var addSelBtn = document.getElementById('picker-add-sel');
+
+        var visibleRows = document.querySelectorAll('#picker-list .picker-row');
+        if (filterText.length > 0 && visibleRows.length > 0) {
+            var allMatch = true;
+            visibleRows.forEach(function(row) {
+                var opId = row.getAttribute('data-opid') || '';
+                if (!opId.toLowerCase().startsWith(filterText.toLowerCase())) {
+                    allMatch = false;
+                }
+            });
+            addAllBtn.disabled = !allMatch;
+        } else {
+            addAllBtn.disabled = true;
+        }
+
+        addSelBtn.disabled = (selectedOpId === null);
+    }
+
+    // ── Picker open/close ──
+    function openPicker() {
+        document.getElementById('picker-overlay').style.display = 'flex';
+        document.getElementById('picker-filter').value = '';
+        selectedOpId = null;
+        renderPicker();
+        document.getElementById('picker-filter').focus();
+    }
+
+    function closePicker() {
+        document.getElementById('picker-overlay').style.display = 'none';
+        selectedOpId = null;
+    }
+
+    function addPrefixEntry(entry) {
+        var ta = document.getElementById('edit-prefixes');
+        var current = ta.value.trim();
+        if (current) {
+            ta.value = current + ', ' + entry;
+        } else {
+            ta.value = entry;
+        }
+        renderResolved();
+    }
 
     async function loadPreset() {
         try {
@@ -68,9 +265,14 @@
                 + '<textarea id="edit-prefixes" style="display:none;flex:1;padding:4px 8px;font-size:14px;min-height:60px;resize:vertical;" maxlength="4096">' + esc((p.prefixes || []).join(', ')) + '</textarea>'
                 + '<button id="save-prefixes-btn" class="btn btn-small btn-primary" style="display:none;">Save</button>'
                 + '<button id="cancel-prefixes-btn" class="btn btn-small" style="display:none;">Cancel</button>'
+                + '<button id="browse-prefixes-btn" class="btn btn-small" style="display:none;">Browse Functions</button>'
                 + '<button id="edit-prefixes-btn" class="edit-icon-btn" title="Edit prefixes">&#9998;</button>'
-                + '</div></div>';
+                + '</div></div>'
+                + '<div><span class="detail-label">Resolved Functions</span>'
+                + '<div id="resolved-panel" class="resolved-panel muted small">Edit prefixes to see which functions they match.</div>'
+                + '</div>';
             document.getElementById('preset-info').innerHTML = infoHtml;
+            renderResolved();
 
             document.getElementById('openapi-link').href = '/api/openapi/preset/' + encodeURIComponent(p.name);
             document.getElementById('delete-btn').style.display = 'block';
@@ -136,6 +338,7 @@
             var prefixesSave = document.getElementById('save-prefixes-btn');
             var prefixesCancel = document.getElementById('cancel-prefixes-btn');
             var prefixesEdit = document.getElementById('edit-prefixes-btn');
+            var prefixesBrowse = document.getElementById('browse-prefixes-btn');
 
             prefixesEdit.addEventListener('click', function() {
                 prefixesDisplayEl.style.display = 'none';
@@ -143,6 +346,7 @@
                 prefixesInput.style.display = 'block';
                 prefixesSave.style.display = 'inline-block';
                 prefixesCancel.style.display = 'inline-block';
+                prefixesBrowse.style.display = 'inline-block';
                 prefixesInput.focus();
             });
 
@@ -151,10 +355,22 @@
                 prefixesInput.style.display = 'none';
                 prefixesSave.style.display = 'none';
                 prefixesCancel.style.display = 'none';
+                prefixesBrowse.style.display = 'none';
                 prefixesDisplayEl.style.display = 'inline';
                 prefixesEdit.style.display = 'inline-block';
+                renderResolved();
             }
             prefixesCancel.addEventListener('click', cancelPrefixes);
+
+            prefixesBrowse.addEventListener('click', function() {
+                if (allFunctions.length === 0) {
+                    loadAllFunctions().then(openPicker);
+                } else {
+                    openPicker();
+                }
+            });
+
+            prefixesInput.addEventListener('input', renderResolved);
 
             prefixesSave.addEventListener('click', async function() {
                 var newPrefixes = prefixesInput.value.trim();
@@ -168,6 +384,7 @@
                         var updated = await res.json();
                         prefixesDisplayEl.textContent = (updated.prefixes || []).join(', ') || '—';
                         cancelPrefixes();
+                        renderResolved();
                     } else {
                         var err = await res.json();
                         alert(err.error || err.message || 'Failed to update');
@@ -183,6 +400,28 @@
             document.getElementById('preset-info').innerHTML = '<div class="muted">Error loading preset</div>';
         }
     }
+
+    // ── Picker event wiring ──
+    document.getElementById('picker-cancel').addEventListener('click', closePicker);
+    document.getElementById('picker-cancel-top').addEventListener('click', closePicker);
+    document.getElementById('picker-overlay').addEventListener('click', function(e) {
+        if (e.target === this) closePicker();
+    });
+    document.getElementById('picker-filter').addEventListener('input', function() {
+        selectedOpId = null;
+        renderPicker();
+    });
+    document.getElementById('picker-add-all').addEventListener('click', function() {
+        var filterText = document.getElementById('picker-filter').value.trim();
+        if (!filterText) return;
+        addPrefixEntry(filterText + '*');
+        closePicker();
+    });
+    document.getElementById('picker-add-sel').addEventListener('click', function() {
+        if (!selectedOpId) return;
+        addPrefixEntry(selectedOpId);
+        closePicker();
+    });
 
     document.getElementById('delete-btn').addEventListener('click', async function() {
         if (!confirm('Delete this preset? This cannot be undone.')) return;
@@ -205,6 +444,7 @@
     });
 
     loadPreset();
+    loadAllFunctions();
     </script>
 
     <style>
@@ -219,6 +459,111 @@
         line-height: 1;
     }
     .edit-icon-btn:hover { color: var(--accent); background: var(--panel-2); }
+    .picker-overlay {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.7);
+        z-index: 1000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    .picker-modal {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        width: 600px;
+        max-width: 90vw;
+        max-height: 80vh;
+        display: flex;
+        flex-direction: column;
+    }
+    .picker-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--border);
+    }
+    .picker-body {
+        padding: 16px 18px;
+        overflow-y: auto;
+        flex: 1;
+        min-height: 0;
+    }
+    .picker-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        padding: 12px 18px;
+        border-top: 1px solid var(--border);
+    }
+    .picker-list {
+        max-height: 350px;
+        overflow-y: auto;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+    }
+    .picker-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--border);
+        cursor: pointer;
+        transition: background 0.1s;
+    }
+    .picker-row:last-child { border-bottom: none; }
+    .picker-row:hover { background: var(--panel-2); }
+    .picker-row-selected { background: #1a3a5c; border-color: #2a5a8a; }
+    .picker-opid {
+        font-family: monospace;
+        font-size: 13px;
+        font-weight: 600;
+        flex-shrink: 0;
+        min-width: 180px;
+    }
+    .picker-desc {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        border-color: var(--border);
+        background: var(--panel-2);
+        color: var(--muted);
+    }
+    .btn:disabled:hover { border-color: var(--border); }
+    .resolved-panel {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+        padding: 8px 10px;
+        border: 1px dashed var(--border);
+        border-radius: 8px;
+        min-height: 34px;
+        background: var(--panel-2);
+    }
+    .resolved-count {
+        font-weight: 600;
+        color: var(--text);
+        margin-right: 4px;
+        width: 100%;
+    }
+    .resolved-chip {
+        display: inline-block;
+        font-family: monospace;
+        font-size: 12px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        color: var(--text);
+    }
     </style>
 </div>
 </body>

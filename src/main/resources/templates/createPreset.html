@@ -27,6 +27,10 @@
                     <span class="muted small">Each prefix is matched against function operation IDs to include them in this preset.</span>
                     <button type="button" id="browse-btn" class="btn btn-small" style="margin-top:6px;align-self:flex-start;">Browse Functions</button>
                 </div>
+                <div class="form-group">
+                    <label>Resolved Functions</label>
+                    <div id="resolved-panel" class="resolved-panel muted small">Type prefixes above to see which functions they match.</div>
+                </div>
                 <div style="display:flex;align-items:center;gap:12px;">
                     <button type="submit" class="btn btn-primary">Create Preset</button>
                     <a href="/ui/presets" class="btn">Cancel</a>
@@ -102,6 +106,7 @@
         } catch(e) {
             allFunctions = [];
         }
+        renderResolved();
     }
 
     // ── Parse current prefixes from textarea ──
@@ -123,6 +128,29 @@
             }
         }
         return false;
+    }
+
+    // ── Render resolved functions panel ──
+    function renderResolved() {
+        var panel = document.getElementById('resolved-panel');
+        if (!panel) return;
+        var prefixes = getCurrentPrefixes();
+        if (prefixes.length === 0) {
+            panel.textContent = 'Type prefixes above to see which functions they match.';
+            return;
+        }
+        var resolved = allFunctions.filter(function(f) {
+            return isCovered(f.operationId, prefixes);
+        });
+        if (resolved.length === 0) {
+            panel.textContent = 'No functions match the current prefixes.';
+            return;
+        }
+        var html = '<span class="resolved-count">' + resolved.length + ' function' + (resolved.length === 1 ? '' : 's') + ' matched:</span>';
+        resolved.forEach(function(f) {
+            html += '<span class="resolved-chip" title="' + esc(f.description || '') + '">' + esc(f.operationId) + '</span>';
+        });
+        panel.innerHTML = html;
     }
 
     // ── Render picker list ──
@@ -206,6 +234,8 @@
     }
 
     // ── Event wiring ──
+    document.getElementById('f-prefixes').addEventListener('input', renderResolved);
+
     document.getElementById('browse-btn').addEventListener('click', function() {
         if (allFunctions.length === 0) {
             loadAllFunctions().then(openPicker);
@@ -236,6 +266,7 @@
         } else {
             ta.value = newEntry;
         }
+        renderResolved();
         closePicker();
     });
 
@@ -248,6 +279,7 @@
         } else {
             ta.value = selectedOpId;
         }
+        renderResolved();
         closePicker();
     });
 
@@ -375,6 +407,33 @@
         color: var(--muted);
     }
     .btn:disabled:hover { border-color: var(--border); }
+    .resolved-panel {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+        padding: 8px 10px;
+        border: 1px dashed var(--border);
+        border-radius: 8px;
+        min-height: 34px;
+        background: var(--panel-2);
+    }
+    .resolved-count {
+        font-weight: 600;
+        color: var(--text);
+        margin-right: 4px;
+        width: 100%;
+    }
+    .resolved-chip {
+        display: inline-block;
+        font-family: monospace;
+        font-size: 12px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        color: var(--text);
+    }
     </style>
 </div>
 </body>
