@@ -257,6 +257,29 @@ class BrowserResourceTest {
         assertTrue(result.contains("ok"));
     }
 
+    // ── Interact: screenshot to file ──────────────────────────
+
+    @Test
+    void testScreenshotToFile() throws Exception {
+        byte[] pngBytes = new byte[]{(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x01};
+        stubFor(post(urlEqualTo("/sessions/s1/screenshot_png"))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", "image/png")
+                        .withBody(pngBytes)));
+
+        var req = new BrowserInteractResource.ScreenshotFileRequest();
+        req.path = System.getProperty("user.dir") + "/target/test-screenshot.png";
+        String result = interactResource.captureScreenshotFile("s1", req);
+        assertTrue(result.contains("test-screenshot.png"));
+        assertTrue(result.contains("\"bytes\":10"));
+    }
+
+    @Test
+    void testScreenshotToFileMissingPath() {
+        var req = new BrowserInteractResource.ScreenshotFileRequest();
+        assertThrows(IllegalArgumentException.class, () -> interactResource.captureScreenshotFile("s1", req));
+    }
+
     // ── Interact: execute JS ──────────────────────────────────
 
     @Test

@@ -87,6 +87,32 @@ public class BrowserInteractResource extends BrowserResourceSupport implements T
     }
 
     @Operation(
+            operationId = "browser_interact_page_capture_screenshot_file",
+            summary = "Capture a screenshot of the current page and write the PNG bytes to a file, returning only the path and size."
+    )
+    @POST
+    @Path("/{session_id}/screenshot_file")
+    public String captureScreenshotFile(@PathParam("session_id") String sessionId, ScreenshotFileRequest request) throws Exception {
+        validateSessionId(sessionId);
+        if (request == null || request.path == null || request.path.isBlank()) {
+            throw new IllegalArgumentException("path is required");
+        }
+
+        ScreenshotRequest screenshot = new ScreenshotRequest();
+        screenshot.full_page = request.full_page;
+
+        byte[] png = postBytes("/sessions/" + sessionId + "/screenshot_png", screenshot);
+
+        java.nio.file.Path target = resolvePath(request.path);
+        java.nio.file.Files.write(target, png);
+
+        return MAPPER.writeValueAsString(java.util.Map.of(
+                "path", target.toString(),
+                "bytes", png.length
+        ));
+    }
+
+    @Operation(
             operationId = "browser_interact_page_execute_javascript",
             summary = "Execute arbitrary JavaScript in the page context and return the result."
     )
@@ -159,6 +185,11 @@ public class BrowserInteractResource extends BrowserResourceSupport implements T
     }
 
     public static class ScreenshotRequest {
+        public Boolean full_page;
+    }
+
+    public static class ScreenshotFileRequest {
+        public String path;
         public Boolean full_page;
     }
 }
