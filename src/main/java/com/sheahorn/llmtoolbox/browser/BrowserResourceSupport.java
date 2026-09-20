@@ -1,6 +1,7 @@
 package com.sheahorn.llmtoolbox.browser;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sheahorn.llmtoolbox.fstools.info.FsResourceSupport;
 import jakarta.inject.Inject;
 
 import java.net.URI;
@@ -12,7 +13,7 @@ import java.time.Duration;
 /**
  * Base class for browser proxy resources that forward requests to the Python sidecar.
  */
-public abstract class BrowserResourceSupport {
+public abstract class BrowserResourceSupport extends FsResourceSupport {
 
     protected static final ObjectMapper MAPPER = new ObjectMapper();
     protected static final HttpClient HTTP = HttpClient.newBuilder()

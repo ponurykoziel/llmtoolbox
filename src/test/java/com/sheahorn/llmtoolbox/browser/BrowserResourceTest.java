@@ -197,6 +197,28 @@ class BrowserResourceTest {
         assertTrue(result.contains("<html>"));
     }
 
+    // ── Interact: get HTML to file ────────────────────────────
+
+    @Test
+    void testGetHtmlFile() throws Exception {
+        stubFor(get(urlEqualTo("/sessions/s1/content"))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"url\":\"https://example.com\",\"html\":\"<html><body>Hi</body></html>\"}")));
+
+        var req = new BrowserInteractResource.HtmlFileRequest();
+        req.path = System.getProperty("user.dir") + "/target/test-page.html";
+        String result = interactResource.getHtmlFile("s1", req);
+        assertTrue(result.contains("test-page.html"));
+        assertTrue(result.contains("\"bytes\":28"));
+    }
+
+    @Test
+    void testGetHtmlFileMissingPath() {
+        var req = new BrowserInteractResource.HtmlFileRequest();
+        assertThrows(IllegalArgumentException.class, () -> interactResource.getHtmlFile("s1", req));
+    }
+
     // ── Interact: get visible text ────────────────────────────
 
     @Test
