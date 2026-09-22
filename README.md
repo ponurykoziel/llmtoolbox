@@ -93,6 +93,10 @@ ping, dig (A, AAAA, CNAME, MX, TXT, NS, SOA, SRV, CAA, and more), curl (HTTPS-on
 
 **Docker** (`devops_docker_*`) — container and image management: version / info / stats, containers (list, inspect, top, ports, logs full & tail, start, stop, restart, rename, remove, retrieve-file, network connect & disconnect), images (list, pull, remove, prune), networks (list, inspect, create, remove), volumes (list, inspect), build, history, exec, run, compose (up, down, ps, logs, restart, build, pull). A global lock serializes all Docker invocations to prevent concurrent state corruption.
 
+### BinPeek (`binpeek_*`)
+
+Binary inspection tools for ELF binaries and other files, scoped to a path inside the allowed root: `ldd` (shared object dependencies), `nm -D` (dynamic symbols), `readelf -d` (dynamic section), `readelf -s` (symbol table), `objdump -T` (dynamic symbol table), `strings` (printable character sequences), `file` (file type detection).
+
 ### Basics (`time_now`, `sleep`, `memory_*`, `notes_*`, `clipboard_*`, `presets_*`)
 
 - **Current time** — UTC timestamp with ISO, human-readable, and epoch formats.
@@ -182,6 +186,12 @@ Some tools shell out to system commands. The table below lists what each tool ca
 | `devops_git_*` | `git` | git |
 | `devops_docker_*` | `docker` | docker.io / docker-ce |
 | `browser_*` | `python3` + Playwright + Chromium | see `browser/setup.sh` |
+| `binpeek_ldd` | `ldd` | libc-bin |
+| `binpeek_nm_dynamic` | `nm` | binutils |
+| `binpeek_readelf_*` | `readelf` | binutils |
+| `binpeek_objdump_dynamic_symbols` | `objdump` | binutils |
+| `binpeek_strings` | `strings` | binutils |
+| `binpeek_file` | `file` | file |
 
 Everything else (`find`, `head`, `tail`, `df`, `du`, `ls`, `cat`, `hostname`, `free`, `uptime`, `who`, `ps`, `top`, `ss`, `ip`, `systemctl`, `journalctl`, `dmesg`, `lscpu`, `lsmem`) is part of coreutils, procps, iproute2, util-linux, or systemd — present on any typical Linux host.
 
@@ -195,7 +205,7 @@ llmtoolbox auto-generates an OpenAPI 3.1 spec (via Quarkus SmallRye OpenAPI). Yo
 GET /api/openapi/preset/{name}
 ```
 
-Built-in presets: `all`, `fs`, `net`, `host`, `build`, `mvn`, `maven`, `devops`, `communication`, `basics`, `current_time`, `presets`, `terminal`, `calculator`, `git`, `docker`.
+Built-in presets: `all`, `fs`, `net`, `host`, `build`, `mvn`, `maven`, `devops`, `communication`, `basics`, `current_time`, `presets`, `terminal`, `calculator`, `git`, `docker`, `binpeek`.
 
 Seeded composite presets: `daemon` (filesystem + host info + network + clipboard + memory + notes + communication + current time), `builder` (filesystem + Maven), `host_ctl` (audio + power + monitor), `host_info` (hardware + netinfo + sysinfo + services + logs), `devops` (all git + docker tools).
 
@@ -212,6 +222,7 @@ Comma-separated operationIds or prefixes with `*` wildcards. Examples:
 
 ## Changelog
 
+- **1.8.1** — BinPeek tools (`binpeek_*`): ldd, nm -D, readelf -d, readelf -s, objdump -T, strings, file.
 - **1.8.0** — LLM calling: providers, models, personalities, and agents with the `llm_execute_request` endpoint (multi-round in-process tool loop). Browser sidecar: opt-in headless browsing (FastAPI + Playwright + Chromium) with 15 `browser_*` tools. Cargo build tools (`build_cargo_*`): build, test, test-one, check, clean, tree, metadata. Sleep tool. Filesystem copy tool (`fs_files_copy_file`). Filesystem moves split by type: `fs_files_move_file` (renamed from `fs_files_move`) and `fs_files_move_dir` (new, directories only). Git and Docker tools renamed to `devops_git_*` / `devops_docker_*` per ADR-0013. ADR-0013 (LLM tool naming) and ADR-0014 (in-process ToolBean dispatch) accepted.
 - **1.7.1** — ADR compliance pass: fixed `mfop`→`llmtoolbox` config property name in calculator resources, added `implements Calculator` to all calculator resource classes, moved calculator resources to `calculators/resource/` subdirectory, clarified ADR-0004 and ADR-0013 checklist rules.
 - **1.7.0** — In-process tool dispatch via `ToolBean` marker interface and CDI. `ToolDispatcher` invokes methods reflectively — no HTTP calls. `Calculator` interface extends `ToolBean` for automatic discovery. `BuiltinFunctionCache` is the single source of truth for operationId→description mapping.
