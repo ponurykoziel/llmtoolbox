@@ -146,13 +146,13 @@ Primary use case of this tool is narrow. Useful when setting up autonomous daemo
 
 ### LLM Calling (`llm_execute_request`)
 
-llmtoolbox can act as an LLM client itself. Manage **Providers** (OpenAI-compatible or Ollama endpoints), **Models**, **Personalities** (system prompt + sampling parameters), and **Agents** (provider + model + personality + tool preset) via the browser UI under **LLM**. The `llm_execute_request` tool executes a prompt through a configured agent with tool support: the agent can call any tools from its preset, dispatched in-process, in a multi-round loop until a final answer.
+llmtoolbox can act as an LLM client itself. Manage **Providers** (OpenAI-compatible or Ollama endpoints), **Models**, **Personalities** (system prompt + sampling parameters), and **Agents** (provider + model + personality + tool preset) via the browser UI under **LLM**. The `llm_execute_request` tool executes a prompt through a configured agent with tool support: the agent can call any tools from its preset, dispatched in-process, in a multi-round loop until a final answer. An optional `imagePath` field attaches a single image (by file path, read and base64-encoded server-side) to the prompt — supported in chat mode only; completions mode rejects it.
 
 ### Browser (`browser_*`)
 
 Opt-in headless browsing via a Python sidecar (FastAPI + Playwright + persistent Chromium), managed as a child process by the Java app. **Disabled by default** — enable with `llmtoolbox.browser.enabled=true`, install dependencies with `browser/setup.sh`, and configure `browser/config.yaml` (see `config.yaml.sample`). The sidecar binds to `127.0.0.1` only and shares a bearer token with the Java proxy.
 
-Tools: profile management (list, create, delete), sessions (open, close, list, current URL), and page interaction — navigate, get HTML, get visible text, click element, screenshots (base64 and PNG), execute JavaScript, type text. Sessions run on isolated browser profiles with stealth mitigations.
+Tools: profile management (list, create, delete), sessions (open, close, list, current URL), and page interaction — navigate, get HTML, get visible text, click element, screenshots (base64, PNG, and to-file), execute JavaScript, type text. The `*_file` variants (`browser_interact_page_capture_screenshot_file`, `browser_interact_page_get_html_file`) write the payload to a file inside the allowed root and return only `{ path, bytes }`, so large screenshots/HTML don't flood the LLM context. Sessions run on isolated browser profiles with stealth mitigations.
 
 ## Host Dependencies
 
@@ -222,6 +222,7 @@ Comma-separated operationIds or prefixes with `*` wildcards. Examples:
 
 ## Changelog
 
+- **1.9.0** — Browser file-capture tools: `browser_interact_page_capture_screenshot_file` and `browser_interact_page_get_html_file` write screenshots/HTML to disk and return only `{ path, bytes }` instead of flooding the LLM context. LLM calling image attachments: `llm_execute_request` accepts an optional `imagePath` (single image, chat mode only; completions mode rejects it). Preset UX: user-created presets sort above built-in defaults, create/edit pages show a live resolved-functions preview for wildcard prefixes, the edit page gains the Browse Functions picker, and the Functions list shows descriptions.
 - **1.8.1** — BinPeek tools (`binpeek_*`): ldd, nm -D, readelf -d, readelf -s, objdump -T, strings, file.
 - **1.8.0** — LLM calling: providers, models, personalities, and agents with the `llm_execute_request` endpoint (multi-round in-process tool loop). Browser sidecar: opt-in headless browsing (FastAPI + Playwright + Chromium) with 15 `browser_*` tools. Cargo build tools (`build_cargo_*`): build, test, test-one, check, clean, tree, metadata. Sleep tool. Filesystem copy tool (`fs_files_copy_file`). Filesystem moves split by type: `fs_files_move_file` (renamed from `fs_files_move`) and `fs_files_move_dir` (new, directories only). Git and Docker tools renamed to `devops_git_*` / `devops_docker_*` per ADR-0013. ADR-0013 (LLM tool naming) and ADR-0014 (in-process ToolBean dispatch) accepted.
 - **1.7.1** — ADR compliance pass: fixed `mfop`→`llmtoolbox` config property name in calculator resources, added `implements Calculator` to all calculator resource classes, moved calculator resources to `calculators/resource/` subdirectory, clarified ADR-0004 and ADR-0013 checklist rules.
