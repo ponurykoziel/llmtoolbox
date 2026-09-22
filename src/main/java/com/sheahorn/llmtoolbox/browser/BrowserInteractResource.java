@@ -40,6 +40,30 @@ public class BrowserInteractResource extends BrowserResourceSupport implements T
     }
 
     @Operation(
+            operationId = "browser_interact_page_get_html_file",
+            summary = "Retrieve the full HTML content of the current page and write it to a file, returning only the path and size."
+    )
+    @POST
+    @Path("/{session_id}/html_file")
+    public String getHtmlFile(@PathParam("session_id") String sessionId, HtmlFileRequest request) throws Exception {
+        validateSessionId(sessionId);
+        if (request == null || request.path == null || request.path.isBlank()) {
+            throw new IllegalArgumentException("path is required");
+        }
+
+        String contentJson = get("/sessions/" + sessionId + "/content");
+        String html = MAPPER.readTree(contentJson).path("html").asText();
+
+        java.nio.file.Path target = resolvePath(request.path);
+        java.nio.file.Files.writeString(target, html, java.nio.charset.StandardCharsets.UTF_8);
+
+        return MAPPER.writeValueAsString(java.util.Map.of(
+                "path", target.toString(),
+                "bytes", html.getBytes(java.nio.charset.StandardCharsets.UTF_8).length
+        ));
+    }
+
+    @Operation(
             operationId = "browser_interact_page_get_visible_text",
             summary = "Extract visible text from the current page, suitable for LLM consumption."
     )
@@ -191,5 +215,9 @@ public class BrowserInteractResource extends BrowserResourceSupport implements T
     public static class ScreenshotFileRequest {
         public String path;
         public Boolean full_page;
+    }
+
+    public static class HtmlFileRequest {
+        public String path;
     }
 }
