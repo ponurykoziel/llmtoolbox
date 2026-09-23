@@ -19,7 +19,6 @@ class ToolsetPrefixTest {
         ToolsetPrefix tp = prefix("");
         assertFalse(tp.enabled());
         assertEquals("fs_files_read", tp.apply("fs_files_read"));
-        assertEquals("fs_files_read", tp.strip("fs_files_read"));
     }
 
     @Test
@@ -41,24 +40,6 @@ class ToolsetPrefixTest {
         ToolsetPrefix tp = prefix("acme");
         assertTrue(tp.enabled());
         assertEquals("acme_fs_files_read", tp.apply("fs_files_read"));
-    }
-
-    @Test
-    void stripRemovesPrefix() {
-        ToolsetPrefix tp = prefix("acme");
-        assertEquals("fs_files_read", tp.strip("acme_fs_files_read"));
-    }
-
-    @Test
-    void stripLeavesUnprefixedIdAlone() {
-        ToolsetPrefix tp = prefix("acme");
-        assertEquals("fs_files_read", tp.strip("fs_files_read"));
-    }
-
-    @Test
-    void stripLeavesOtherPrefixAlone() {
-        ToolsetPrefix tp = prefix("acme");
-        assertEquals("other_fs_files_read", tp.strip("other_fs_files_read"));
     }
 
     @Test

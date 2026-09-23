@@ -8,16 +8,17 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 /**
- * Optional global prefix applied to every tool operationId exposed to LLMs
- * and to the OpenAPI subset (Open WebUI) surface.
+ * Optional global prefix applied to tool operationIds in the OpenAPI subset
+ * served to Open WebUI.
  *
  * <p>Configured via {@code llmtoolbox.global.function.prefix}. When empty
  * (the default) no prefix is applied. When set, the value is restricted to
  * {@code [A-Za-z0-9_]+} and is joined to the operationId with a single
  * underscore: {@code <prefix>_<operationId>}.</p>
  *
- * <p>Only the operationId is affected — REST paths are the HTTP contract and
- * are never changed.</p>
+ * <p>Only the operationId in the OpenAPI subset is affected. REST paths are
+ * the HTTP contract and are never changed, and the internal tool catalog
+ * (functions list, in-process dispatch) keeps raw operationIds.</p>
  */
 @ApplicationScoped
 public class ToolsetPrefix {
@@ -42,16 +43,6 @@ public class ToolsetPrefix {
             return operationId;
         }
         return prefix + "_" + operationId;
-    }
-
-    /** Removes the prefix (if any) from a tool-call name, yielding the raw operationId. */
-    public String strip(String operationId) {
-        String prefix = effective();
-        if (prefix.isEmpty() || operationId == null) {
-            return operationId;
-        }
-        String marker = prefix + "_";
-        return operationId.startsWith(marker) ? operationId.substring(marker.length()) : operationId;
     }
 
     private String effective() {

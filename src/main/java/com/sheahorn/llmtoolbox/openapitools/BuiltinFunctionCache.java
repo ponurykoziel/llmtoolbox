@@ -4,11 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.sheahorn.llmtoolbox.config.ToolsetPrefix;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
-import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
 import java.io.InputStream;
@@ -24,9 +22,6 @@ public class BuiltinFunctionCache {
     private final Map<String, String> functions = new LinkedHashMap<>();
     private final Map<String, JsonNode> schemas = new LinkedHashMap<>();
     private volatile boolean loaded = false;
-
-    @Inject
-    ToolsetPrefix toolsetPrefix;
 
     void init(@Observes StartupEvent event) {
         load();
@@ -51,7 +46,7 @@ public class BuiltinFunctionCache {
             for (JsonNode op : allOperations(pathItem)) {
                 JsonNode opId = op.get("operationId");
                 if (opId != null) {
-                    String id = toolsetPrefix.apply(opId.asText());
+                    String id = opId.asText();
                     String desc = null;
                     JsonNode summary = op.get("summary");
                     if (summary != null && !summary.isNull()) desc = summary.asText();

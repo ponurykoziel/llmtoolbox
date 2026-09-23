@@ -3,7 +3,6 @@ package com.sheahorn.llmtoolbox.llm;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sheahorn.llmtoolbox.basics.presets.PresetDefaults;
-import com.sheahorn.llmtoolbox.config.ToolsetPrefix;
 import com.sheahorn.llmtoolbox.openapitools.BuiltinFunctionCache;
 import io.quarkus.arc.Arc;
 import io.quarkus.runtime.StartupEvent;
@@ -25,9 +24,6 @@ public class ToolDispatcher {
 
     @Inject
     BuiltinFunctionCache functionCache;
-
-    @Inject
-    ToolsetPrefix toolsetPrefix;
 
     /** Maps operationId → ToolMethod. Built at startup via CDI scan. */
     private volatile Map<String, ToolMethod> dispatchIndex;
@@ -138,13 +134,12 @@ public class ToolDispatcher {
             if (p.equals("*")) {
                 opIds.addAll(functionCache.all().keySet());
             } else if (p.endsWith("*")) {
-                String rawPrefix = p.substring(0, p.length() - 1);
-                String prefix = toolsetPrefix.apply(rawPrefix);
+                String prefix = p.substring(0, p.length() - 1);
                 for (String id : functionCache.all().keySet()) {
                     if (id.startsWith(prefix)) opIds.add(id);
                 }
             } else {
-                opIds.add(toolsetPrefix.apply(p));
+                opIds.add(p);
             }
         }
 
@@ -169,8 +164,7 @@ public class ToolDispatcher {
             buildDispatchIndex();
         }
 
-        String lookupId = toolsetPrefix.strip(operationId);
-        ToolMethod tm = dispatchIndex.get(lookupId);
+        ToolMethod tm = dispatchIndex.get(operationId);
         if (tm == null) {
             return "[ TOOL ERROR: unknown operationId: " + operationId + " ]";
         }

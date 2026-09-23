@@ -204,7 +204,7 @@ public class OpenApiSubsetResource {
             String pathUrl = "/api/tools/functions/custom/" + f.operationId;
 
             ObjectNode op = MAPPER.createObjectNode();
-            op.put("operationId", f.operationId);
+            op.put("operationId", toolsetPrefix.apply(f.operationId));
             op.put("summary", f.description != null ? f.description : "Execute custom function: " + f.operationId);
 
             // responses

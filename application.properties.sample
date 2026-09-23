@@ -100,12 +100,12 @@
 
 # ── Toolset ────────────────────────────────────────────────────────
 
-# Optional prefix prepended to every tool operationId exposed to LLMs
-# and to the OpenAPI subset (Open WebUI) surface. Empty (default) = no
-# prefix. When set, restricted to [A-Za-z0-9_]+, joined with an underscore:
-#   <prefix>_<operationId>
-# Only the operationId changes — REST paths are never affected.
-# Applies to built-in tools and custom functions alike.
+# Optional prefix prepended to every tool operationId in the OpenAPI subset
+# (Open WebUI) surface. Empty (default) = no prefix. When set, restricted to
+# [A-Za-z0-9_]+, joined with an underscore: <prefix>_<operationId>
+# Only the operationId in the OpenAPI subset changes — REST paths and the
+# internal functions list are never affected. Applies to built-in tools and
+# custom functions alike.
 #llmtoolbox.global.function.prefix=
 
 # ── Security ──────────────────────────────────────────────────────
