@@ -15,7 +15,10 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import com.sheahorn.llmtoolbox.auth.NoBearerAuth;
 import com.sheahorn.llmtoolbox.basics.presets.PresetDefaults;
+import com.sheahorn.llmtoolbox.config.ToolsetPrefix;
 import com.sheahorn.llmtoolbox.custom.CustomFunction;
+
+import jakarta.inject.Inject;
 
 @Path("/api/openapi")
 @Produces(MediaType.APPLICATION_JSON)
@@ -24,6 +27,9 @@ public class OpenApiSubsetResource {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private volatile JsonNode cachedFull;
+
+    @Inject
+    ToolsetPrefix toolsetPrefix;
     private static final String[] OPENAPI_FILES = {
         "/META-INF/openapi.yaml",
         "/META-INF/openapi.yml",
@@ -268,7 +274,7 @@ public class OpenApiSubsetResource {
         return ops;
     }
 
-    /** Keep only operations whose operationId is in the selected set. */
+    /** Keep only operations whose operationId is in the selected set, prefixing operationIds. */
     private JsonNode slimPathItem(JsonNode pi, Set<String> selectedOpIds) {
         ObjectNode slim = MAPPER.createObjectNode();
         boolean any = false;
@@ -278,7 +284,9 @@ public class OpenApiSubsetResource {
             if (op != null && !op.isNull()) {
                 JsonNode opId = op.get("operationId");
                 if (opId != null && selectedOpIds.contains(opId.asText())) {
-                    slim.set(m, op.deepCopy());
+                    ObjectNode copy = op.deepCopy();
+                    copy.put("operationId", toolsetPrefix.apply(opId.asText()));
+                    slim.set(m, copy);
                     any = true;
                 }
             }

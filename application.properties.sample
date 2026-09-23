@@ -98,6 +98,16 @@
 # Must match the token in browser/config.yaml.
 #llmtoolbox.browser.token=
 
+# ── Toolset ────────────────────────────────────────────────────────
+
+# Optional prefix prepended to every tool operationId exposed to LLMs
+# and to the OpenAPI subset (Open WebUI) surface. Empty (default) = no
+# prefix. When set, restricted to [A-Za-z0-9_]+, joined with an underscore:
+#   <prefix>_<operationId>
+# Only the operationId changes — REST paths are never affected.
+# Applies to built-in tools and custom functions alike.
+#llmtoolbox.global.function.prefix=
+
 # ── Security ──────────────────────────────────────────────────────
 
 # Master Bearer token for API access. Send as: Authorization: Bearer <token>
