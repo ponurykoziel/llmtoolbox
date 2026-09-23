@@ -6,10 +6,15 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import io.quarkus.test.InjectMock;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.Map;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
@@ -257,13 +262,14 @@ class BrowserResourceTest {
 
     @Test
     void testScreenshotBase64() throws Exception {
-        stubFor(post(urlEqualTo("/sessions/s1/screenshot_base64"))
+        stubFor(post(urlEqualTo("/sessions/s1/screenshot_png"))
                 .willReturn(aResponse()
-                        .withHeader("Content-Type", "application/json")
-                        .withBody("{\"screenshot_b64\":\"iVBORw0KGgo=\"}")));
+                        .withHeader("Content-Type", "image/png")
+                        .withBody(pngBytes())));
 
         String result = interactResource.captureScreenshotBase64("s1", null);
-        assertTrue(result.contains("iVBORw0KGgo="));
+        assertTrue(result.contains("\"screenshot_b64\""));
+        assertTrue(result.contains("\"format\":\"png\""));
     }
 
     // ── Interact: screenshot png ──────────────────────────────
@@ -272,34 +278,93 @@ class BrowserResourceTest {
     void testScreenshotPng() throws Exception {
         stubFor(post(urlEqualTo("/sessions/s1/screenshot_png"))
                 .willReturn(aResponse()
-                        .withHeader("Content-Type", "application/json")
-                        .withBody("{\"status\":\"ok\"}")));
+                        .withHeader("Content-Type", "image/png")
+                        .withBody(pngBytes())));
 
-        String result = interactResource.captureScreenshotPng("s1", null);
-        assertTrue(result.contains("ok"));
+        Response result = interactResource.captureScreenshotPng("s1", null);
+        assertEquals(200, result.getStatus());
+        assertTrue(result.getMediaType().toString().contains("image/png"));
     }
 
     // ── Interact: screenshot to file ──────────────────────────
 
     @Test
     void testScreenshotToFile() throws Exception {
-        byte[] pngBytes = new byte[]{(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x01};
         stubFor(post(urlEqualTo("/sessions/s1/screenshot_png"))
                 .willReturn(aResponse()
                         .withHeader("Content-Type", "image/png")
-                        .withBody(pngBytes)));
+                        .withBody(pngBytes())));
 
         var req = new BrowserInteractResource.ScreenshotFileRequest();
         req.path = System.getProperty("user.dir") + "/target/test-screenshot.png";
         String result = interactResource.captureScreenshotFile("s1", req);
         assertTrue(result.contains("test-screenshot.png"));
-        assertTrue(result.contains("\"bytes\":10"));
+        assertTrue(result.contains("\"format\":\"png\""));
     }
 
     @Test
     void testScreenshotToFileMissingPath() {
         var req = new BrowserInteractResource.ScreenshotFileRequest();
         assertThrows(IllegalArgumentException.class, () -> interactResource.captureScreenshotFile("s1", req));
+    }
+
+    // ── Screenshot settings ───────────────────────────────────
+
+    @Test
+    void testScreenshotSettingsUpdateAndGet() {
+        ScreenshotSettingsService service = new ScreenshotSettingsService();
+        ScreenshotSettings updated = service.update("jpg", 80, 1024);
+        assertEquals("jpg", updated.getFormat());
+        assertEquals(80, updated.getCompression());
+        assertEquals(1024L, updated.getMaxBytes());
+        assertEquals(updated, service.get());
+    }
+
+    @Test
+    void testScreenshotSettingsValidation() {
+        assertThrows(IllegalArgumentException.class, () -> new ScreenshotSettings("jpg", 0, 0));
+        assertThrows(IllegalArgumentException.class, () -> new ScreenshotSettings("jpg", 101, 0));
+        assertThrows(IllegalArgumentException.class, () -> new ScreenshotSettings("png", -1, 0));
+        assertThrows(IllegalArgumentException.class, () -> new ScreenshotSettings("png", 10, 0));
+        assertThrows(IllegalArgumentException.class, () -> new ScreenshotSettings("gif", 5, 0));
+        assertThrows(IllegalArgumentException.class, () -> new ScreenshotSettings("png", 5, -1));
+    }
+
+    @Test
+    void testScreenshotSettingsTransformJpg() throws Exception {
+        ScreenshotSettings settings = new ScreenshotSettings("jpg", 70, 0);
+        byte[] out = settings.transform(pngBytes());
+        // JPEG magic number
+        assertEquals((byte) 0xFF, out[0]);
+        assertEquals((byte) 0xD8, out[1]);
+    }
+
+    @Test
+    void testScreenshotSettingsTransformPng() throws Exception {
+        ScreenshotSettings settings = new ScreenshotSettings("png", 0, 0);
+        byte[] out = settings.transform(pngBytes());
+        // PNG magic number
+        assertEquals((byte) 0x89, out[0]);
+        assertEquals((byte) 0x50, out[1]);
+    }
+
+    @Test
+    void testScreenshotSettingsByteCapDownscales() throws Exception {
+        ScreenshotSettings settings = new ScreenshotSettings("jpg", 95, 1);
+        byte[] out = settings.transform(pngBytes());
+        // A 1-byte cap forces downscaling to a 1x1 image; JPEG of 1x1 is tiny but > 1 byte,
+        // so the loop bottoms out at the minimum dimension. Just verify it doesn't throw and returns bytes.
+        assertNotNull(out);
+        assertTrue(out.length > 0);
+    }
+
+    // ── helpers ────────────────────────────────────────────────
+
+    private byte[] pngBytes() throws IOException {
+        BufferedImage img = new BufferedImage(64, 64, BufferedImage.TYPE_INT_ARGB);
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        ImageIO.write(img, "png", bos);
+        return bos.toByteArray();
     }
 
     // ── Interact: execute JS ──────────────────────────────────

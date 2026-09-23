@@ -1,9 +1,13 @@
 package com.sheahorn.llmtoolbox.browser;
 
 import com.sheahorn.llmtoolbox.llm.ToolBean;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+
+import java.util.Base64;
 
 /**
  * Proxy for browser interaction endpoints on the Python sidecar.
@@ -13,6 +17,9 @@ import org.eclipse.microprofile.openapi.annotations.Operation;
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
 public class BrowserInteractResource extends BrowserResourceSupport implements ToolBean {
+
+    @Inject
+    ScreenshotSettingsService screenshotSettings;
 
     @Operation(
             operationId = "browser_interact_page_navigate_to",
@@ -90,29 +97,40 @@ public class BrowserInteractResource extends BrowserResourceSupport implements T
 
     @Operation(
             operationId = "browser_interact_page_capture_screenshot_base64",
-            summary = "Capture a screenshot of the current page, returned as a base64-encoded PNG string."
+            summary = "Capture a screenshot of the current page, returned as a base64-encoded string in the configured format."
     )
     @POST
     @Path("/{session_id}/screenshot_base64")
     public String captureScreenshotBase64(@PathParam("session_id") String sessionId, ScreenshotRequest request) throws Exception {
         validateSessionId(sessionId);
-        return post("/sessions/" + sessionId + "/screenshot_base64", request != null ? request : new ScreenshotRequest());
+        byte[] png = capturePng(sessionId, request);
+        byte[] transformed = screenshotSettings.get().transform(png);
+        String b64 = Base64.getEncoder().encodeToString(transformed);
+        return MAPPER.writeValueAsString(java.util.Map.of(
+                "screenshot_b64", b64,
+                "format", screenshotSettings.get().getFormat()
+        ));
     }
 
     @Operation(
             operationId = "browser_interact_page_capture_screenshot_png",
-            summary = "Capture a screenshot of the current page, returned as raw PNG bytes (image/png)."
+            summary = "Capture a screenshot of the current page, returned as raw image bytes in the configured format."
     )
     @POST
     @Path("/{session_id}/screenshot_png")
-    public String captureScreenshotPng(@PathParam("session_id") String sessionId, ScreenshotRequest request) throws Exception {
+    public Response captureScreenshotPng(@PathParam("session_id") String sessionId, ScreenshotRequest request) throws Exception {
         validateSessionId(sessionId);
-        return post("/sessions/" + sessionId + "/screenshot_png", request != null ? request : new ScreenshotRequest());
+        byte[] png = capturePng(sessionId, request);
+        ScreenshotSettings settings = screenshotSettings.get();
+        byte[] transformed = settings.transform(png);
+        String mediaType = ScreenshotSettings.FORMAT_JPG.equals(settings.getFormat())
+                ? "image/jpeg" : "image/png";
+        return Response.ok(transformed).type(mediaType).build();
     }
 
     @Operation(
             operationId = "browser_interact_page_capture_screenshot_file",
-            summary = "Capture a screenshot of the current page and write the PNG bytes to a file, returning only the path and size."
+            summary = "Capture a screenshot of the current page and write it to a file in the configured format, returning only the path and size."
     )
     @POST
     @Path("/{session_id}/screenshot_file")
@@ -124,15 +142,17 @@ public class BrowserInteractResource extends BrowserResourceSupport implements T
 
         ScreenshotRequest screenshot = new ScreenshotRequest();
         screenshot.full_page = request.full_page;
-
-        byte[] png = postBytes("/sessions/" + sessionId + "/screenshot_png", screenshot);
+        byte[] png = capturePng(sessionId, screenshot);
+        ScreenshotSettings settings = screenshotSettings.get();
+        byte[] transformed = settings.transform(png);
 
         java.nio.file.Path target = resolvePath(request.path);
-        java.nio.file.Files.write(target, png);
+        java.nio.file.Files.write(target, transformed);
 
         return MAPPER.writeValueAsString(java.util.Map.of(
                 "path", target.toString(),
-                "bytes", png.length
+                "bytes", transformed.length,
+                "format", settings.getFormat()
         ));
     }
 
@@ -184,6 +204,15 @@ public class BrowserInteractResource extends BrowserResourceSupport implements T
         if (sessionId == null || sessionId.isBlank()) {
             throw new IllegalArgumentException("session_id is required");
         }
+    }
+
+    /**
+     * Captures a lossless PNG from the Python sidecar (single source of truth
+     * for all screenshot tools). Transformation happens in Java via settings.
+     */
+    private byte[] capturePng(String sessionId, ScreenshotRequest request) throws Exception {
+        ScreenshotRequest screenshot = request != null ? request : new ScreenshotRequest();
+        return postBytes("/sessions/" + sessionId + "/screenshot_png", screenshot);
     }
 
     // ── DTOs ─────────────────────────────────────────────────
