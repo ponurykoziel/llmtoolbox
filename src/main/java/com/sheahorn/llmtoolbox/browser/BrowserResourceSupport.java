@@ -19,6 +19,7 @@ public abstract class BrowserResourceSupport extends FsResourceSupport {
     protected static final ObjectMapper MAPPER = new ObjectMapper();
     protected static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
+            .version(HttpClient.Version.HTTP_1_1)
             .build();
 
     @Inject
