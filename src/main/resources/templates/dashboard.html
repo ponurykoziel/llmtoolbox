@@ -52,6 +52,24 @@
 
     <div class="card" style="margin-bottom: 24px;">
         <div class="card-body">
+            <h2>LLM Calling</h2>
+            <div id="llm-calling" class="status-box">Loading&hellip;</div>
+        </div>
+    </div>
+
+    <div class="card" id="browser-venv-card" style="margin-bottom: 24px; display: none;">
+        <div class="card-body">
+            <h2>Browser Environment</h2>
+            <p class="muted small" style="margin-bottom: 12px;">The browser sidecar's Python virtual environment is not set up yet. Click below to create it.</p>
+            <div class="actions" style="margin-bottom: 12px;">
+                <button class="btn btn-primary" id="browser-venv-init-btn" onclick="initBrowserVenv()">Initialize venv</button>
+            </div>
+            <textarea id="browser-venv-log" rows="12" readonly style="width:100%; font-family:monospace; font-size:12px; background:#0c1016;" placeholder="Setup output will appear here&hellip;"></textarea>
+        </div>
+    </div>
+
+    <div class="card" style="margin-bottom: 24px;">
+        <div class="card-body">
             <h2>Global Locks</h2>
             <div id="locks-status" class="status-box">Loading&hellip;</div>
         </div>
@@ -106,6 +124,13 @@
         return locked ? 'LOCKED' : 'free';
     }
 
+    function browserColor(status) {
+        if (status === 'on') return 'color:var(--gold);';
+        if (status === 'no venv') return 'color:var(--danger);';
+        if (status === 'init') return 'color:var(--muted);';
+        return '';
+    }
+
     function toolPill(tool) {
         if (tool === 'mvn') return 'pill-normal';
         if (tool === 'git') return 'pill-doing';
@@ -113,13 +138,46 @@
         return 'pill-todo';
     }
 
+    function initBrowserVenv() {
+        var btn = document.getElementById('browser-venv-init-btn');
+        var log = document.getElementById('browser-venv-log');
+        btn.disabled = true;
+        btn.textContent = 'Initializing\u2026';
+        log.value = '';
+
+        var es = new EventSource('/api/tools/browser/venv/init');
+        es.addEventListener('log', function(e) {
+            log.value += e.data + '\n';
+            log.scrollTop = log.scrollHeight;
+        });
+        es.addEventListener('done', function(e) {
+            log.value += '\n' + e.data + '\n';
+            log.scrollTop = log.scrollHeight;
+            es.close();
+            btn.disabled = false;
+            btn.textContent = 'Initialize venv';
+            refresh();
+        });
+        es.onerror = function() {
+            es.close();
+            btn.disabled = false;
+            btn.textContent = 'Initialize venv';
+            refresh();
+        };
+    }
+
     async function refresh() {
         try {
-            var [presetsRes, builtinRes, customRes, locksRes] = await Promise.all([
+            var [presetsRes, builtinRes, customRes, locksRes, featuresRes, providersRes, personalitiesRes, modelsRes, agentsRes] = await Promise.all([
                 fetch('/api/tools/basics/presets/all'),
                 fetch('/api/functions/builtin'),
                 fetch('/api/tools/functions').catch(function() { return {ok: false}; }),
-                fetch('/api/tools/build/locks').catch(function() { return {ok: false}; })
+                fetch('/api/tools/build/locks').catch(function() { return {ok: false}; }),
+                fetch('/api/tools/features').catch(function() { return {ok: false}; }),
+                fetch('/api/llm/providers').catch(function() { return {ok: false}; }),
+                fetch('/api/llm/personalities').catch(function() { return {ok: false}; }),
+                fetch('/api/llm/models').catch(function() { return {ok: false}; }),
+                fetch('/api/llm/agents').catch(function() { return {ok: false}; })
             ]);
 
             var presets = presetsRes.ok ? await presetsRes.json() : [];
@@ -130,6 +188,21 @@
             var lockMode = locksData.mode || 'synchronize';
             var inFlight = locksData.inFlight || [];
             var history = locksData.history || [];
+            var features = featuresRes.ok ? await featuresRes.json() : {};
+            var terminalEnabled = !!(features.terminal && features.terminal.enabled);
+            var browserStatus = (features.browser && features.browser.status) ? features.browser.status : (features.browser && features.browser.enabled ? 'on' : 'off');
+            var browserVenvPresent = !!(features.browser && features.browser.venvPresent);
+            var browserEnabled = !!(features.browser && features.browser.enabled);
+            var providers = providersRes.ok ? await providersRes.json() : [];
+            var personalities = personalitiesRes.ok ? await personalitiesRes.json() : [];
+            var models = modelsRes.ok ? await modelsRes.json() : [];
+            var agents = agentsRes.ok ? await agentsRes.json() : [];
+
+            // Show the venv init card only when the browser is enabled but the venv is missing
+            var venvCard = document.getElementById('browser-venv-card');
+            if (venvCard) {
+                venvCard.style.display = (browserEnabled && !browserVenvPresent) ? 'block' : 'none';
+            }
 
             document.getElementById('preset-count').textContent = presets.length;
             document.getElementById('function-count').textContent = builtins.length + customs.length;
@@ -143,8 +216,37 @@
                 + '<span class="pill pill-doing" style="white-space:nowrap;">custom</span>'
                 + '<span style="font-size:18px;font-weight:700;">' + customs.length + '</span>'
                 + '</div>'
+                + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+                + '<span class="pill pill-normal" style="white-space:nowrap;">terminal</span>'
+                + '<span style="font-size:14px;font-weight:700;' + (terminalEnabled ? 'color:var(--gold);' : '') + '">' + (terminalEnabled ? 'on' : 'off') + '</span>'
+                + '</div>'
+                + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+                + '<span class="pill pill-normal" style="white-space:nowrap;">browser</span>'
+                + '<span style="font-size:14px;font-weight:700;' + browserColor(browserStatus) + '">' + esc(browserStatus) + '</span>'
+                + '</div>'
                 + '</div>';
             document.getElementById('functions-breakdown').innerHTML = breakdownHtml;
+
+            // ── llm calling ────────────────────────────────────
+            var llmHtml = '<div class="grid grid-2" style="gap:12px;">'
+                + '<div style="background:var(--panel-2);border-radius:8px;padding:12px 14px;text-align:center;">'
+                + '<div style="font-size:24px;font-weight:700;">' + providers.length + '</div>'
+                + '<div class="muted small">Providers</div>'
+                + '</div>'
+                + '<div style="background:var(--panel-2);border-radius:8px;padding:12px 14px;text-align:center;">'
+                + '<div style="font-size:24px;font-weight:700;">' + personalities.length + '</div>'
+                + '<div class="muted small">Personalities</div>'
+                + '</div>'
+                + '<div style="background:var(--panel-2);border-radius:8px;padding:12px 14px;text-align:center;">'
+                + '<div style="font-size:24px;font-weight:700;">' + models.length + '</div>'
+                + '<div class="muted small">Models</div>'
+                + '</div>'
+                + '<div style="background:var(--panel-2);border-radius:8px;padding:12px 14px;text-align:center;">'
+                + '<div style="font-size:24px;font-weight:700;">' + agents.length + '</div>'
+                + '<div class="muted small">Agents</div>'
+                + '</div>'
+                + '</div>';
+            document.getElementById('llm-calling').innerHTML = llmHtml;
 
             // ── locks ──────────────────────────────────────────
             var lockNames = ['mvn', 'git', 'docker'];
