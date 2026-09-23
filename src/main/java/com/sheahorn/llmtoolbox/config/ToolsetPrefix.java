@@ -36,6 +36,11 @@ public class ToolsetPrefix {
         return !effective().isEmpty();
     }
 
+    /** The effective prefix (empty string when disabled). */
+    public String value() {
+        return effective();
+    }
+
     /** Prepends the prefix (if any) to the given operationId. */
     public String apply(String operationId) {
         String prefix = effective();

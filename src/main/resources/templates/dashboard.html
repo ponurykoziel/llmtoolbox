@@ -6,7 +6,7 @@
     <h1 class="page-title">Dashboard</h1>
     <p class="page-subtitle">Overview of your presets, functions, and global locks</p>
 
-    <div class="grid grid-2" style="margin-bottom: 24px;">
+    <div class="grid grid-3" style="margin-bottom: 24px;">
         <div class="card">
             <div class="card-body">
                 <h3>Presets</h3>
@@ -19,6 +19,13 @@
                 <h3>Functions</h3>
                 <div class="stat" id="function-count">&mdash;</div>
                 <div class="muted small">Built-in + custom</div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-body">
+                <h3>Global Function Prefix</h3>
+                <div class="stat" id="prefix-value" style="font-size:20px;word-break:break-all;" th:text="${toolsetPrefix != null && !toolsetPrefix.isEmpty()} ? ${toolsetPrefix} : '(none)'"></div>
+                <div class="muted small">llmtoolbox.global.function.prefix</div>
             </div>
         </div>
     </div>
