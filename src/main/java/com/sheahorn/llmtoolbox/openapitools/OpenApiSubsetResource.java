@@ -26,7 +26,7 @@ import jakarta.inject.Inject;
 public class OpenApiSubsetResource {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
-    private volatile JsonNode cachedFull;
+    private volatile JsonNode rawSpec;
 
     @Inject
     ToolsetPrefix toolsetPrefix;
@@ -44,7 +44,7 @@ public class OpenApiSubsetResource {
         if (selectors == null || selectors.isBlank()) {
             return error("selectors path param is required (comma-separated). Use abc_* for prefix, abc_def for exact.");
         }
-        JsonNode full = resolveOpenApi();
+        JsonNode full = resolveOpenApiWithCustomFunctions();
         if (full == null) {
             return error("OpenAPI document not available");
         }
@@ -78,7 +78,7 @@ public class OpenApiSubsetResource {
             return error("Unknown preset: " + name + ". Available: " + available);
         }
 
-        JsonNode full = resolveOpenApi();
+        JsonNode full = resolveOpenApiWithCustomFunctions();
         if (full == null) {
             return error("OpenAPI document not available");
         }
@@ -160,22 +160,34 @@ public class OpenApiSubsetResource {
     }
 
     private JsonNode resolveOpenApi() {
-        if (cachedFull != null) return cachedFull;
+        if (rawSpec != null) return rawSpec;
         synchronized (this) {
-            if (cachedFull != null) return cachedFull;
+            if (rawSpec != null) return rawSpec;
             for (String file : OPENAPI_FILES) {
                 try (InputStream is = getClass().getResourceAsStream(file)) {
                     if (is == null) continue;
                     String raw = new String(is.readAllBytes(), StandardCharsets.UTF_8);
-                    cachedFull = MAPPER.readTree(raw);
-                    injectCustomFunctions((ObjectNode) cachedFull);
-                    return cachedFull;
+                    rawSpec = MAPPER.readTree(raw);
+                    return rawSpec;
                 } catch (Exception e) {
                     // try next
                 }
             }
             return null;
         }
+    }
+
+    /**
+     * Returns a fresh deep copy of the raw OpenAPI spec with custom functions
+     * injected. Custom functions are re-read from the DB on every call so the
+     * subset always reflects the current set.
+     */
+    private JsonNode resolveOpenApiWithCustomFunctions() {
+        JsonNode raw = resolveOpenApi();
+        if (raw == null) return null;
+        ObjectNode full = raw.deepCopy();
+        injectCustomFunctions(full);
+        return full;
     }
 
     /**
@@ -204,7 +216,7 @@ public class OpenApiSubsetResource {
             String pathUrl = "/api/tools/functions/custom/" + f.operationId;
 
             ObjectNode op = MAPPER.createObjectNode();
-            op.put("operationId", toolsetPrefix.apply(f.operationId));
+            op.put("operationId", f.operationId);
             op.put("summary", f.description != null ? f.description : "Execute custom function: " + f.operationId);
 
             // responses
