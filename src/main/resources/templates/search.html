@@ -124,16 +124,14 @@
                 html += '<h2 class="section-title">Built-in Functions (' + matchedBuiltins.length + ')</h2>';
                 html += '<div class="search-results-list">';
                 matchedBuiltins.forEach(function(f) {
-                    var matchField = null;
-                    if (f.operationId.toLowerCase().indexOf(q) >= 0) matchField = f.operationId;
-                    else if ((f.description || '').toLowerCase().indexOf(q) >= 0) matchField = f.description;
+                    var desc = f.description || '';
                     html += '<div class="search-result-row">';
                     html += '<div class="search-result-header">';
                     html += typeBadge('function-builtin');
                     html += '<strong>' + esc(f.operationId) + '</strong>';
                     html += '</div>';
-                    if (matchField) {
-                        html += '<div class="search-result-snippet">' + snippet(matchField, phrase) + '</div>';
+                    if (desc) {
+                        html += '<div class="search-result-snippet">' + snippet(desc, phrase) + '</div>';
                     }
                     html += '</div>';
                 });
@@ -145,8 +143,9 @@
                 html += '<h2 class="section-title">Custom Functions (' + matchedCustoms.length + ')</h2>';
                 html += '<div class="search-results-list">';
                 matchedCustoms.forEach(function(f) {
+                    var desc = f.description || '';
                     var matchField = null;
-                    var fields = ['operationId', 'description', 'input', 'output', 'implementation', 'targetLanguage'];
+                    var fields = ['input', 'output', 'implementation', 'targetLanguage'];
                     for (var i = 0; i < fields.length; i++) {
                         var val = f[fields[i]];
                         if (val && val.toLowerCase().indexOf(q) >= 0) {
@@ -159,6 +158,9 @@
                     html += typeBadge('function-custom');
                     html += '<a href="/ui/functions/' + encodeURIComponent(f.id) + '"><strong>' + esc(f.operationId || f.id) + '</strong></a>';
                     html += '</div>';
+                    if (desc) {
+                        html += '<div class="search-result-snippet">' + snippet(desc, phrase) + '</div>';
+                    }
                     if (matchField) {
                         html += '<div class="search-result-snippet">' + snippet(matchField, phrase) + '</div>';
                     }
