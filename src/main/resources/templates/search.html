@@ -131,7 +131,7 @@
                     html += '<strong>' + esc(f.operationId) + '</strong>';
                     html += '</div>';
                     if (desc) {
-                        html += '<div class="search-result-snippet">' + snippet(desc, phrase) + '</div>';
+                        html += '<div class="search-result-snippet">' + esc(desc) + '</div>';
                     }
                     html += '</div>';
                 });
@@ -159,7 +159,7 @@
                     html += '<a href="/ui/functions/' + encodeURIComponent(f.id) + '"><strong>' + esc(f.operationId || f.id) + '</strong></a>';
                     html += '</div>';
                     if (desc) {
-                        html += '<div class="search-result-snippet">' + snippet(desc, phrase) + '</div>';
+                        html += '<div class="search-result-snippet">' + esc(desc) + '</div>';
                     }
                     if (matchField) {
                         html += '<div class="search-result-snippet">' + snippet(matchField, phrase) + '</div>';
