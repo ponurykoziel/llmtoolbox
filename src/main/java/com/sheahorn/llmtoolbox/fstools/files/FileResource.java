@@ -12,10 +12,13 @@ import com.sheahorn.llmtoolbox.llm.ToolBean;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Duration;
 import java.time.Instant;
 
@@ -297,6 +300,74 @@ public class FileResource extends FsResourceSupport implements ToolBean {
             }
 
             Files.copy(source, target);
+
+            return "copied\n";
+        });
+    }
+
+    @Operation(
+            operationId = "fs_files_copy_dir",
+            summary = "Recursively copies a directory inside the allowed root to a new path, refusing if the target exists"
+    )
+    @POST
+    @jakarta.ws.rs.Path("/copy-dir")
+    public ExecutionResponse copyDir(CopyDirRequestDto request) {
+        return wrap("copy-dir "
+                + quote(request == null ? null : request.sourcePath)
+                + " "
+                + quote(request == null ? null : request.targetPath), () -> {
+
+            if (request == null) {
+                throw new IllegalArgumentException("Request is required");
+            }
+
+            Path source = existingDirectory(request.sourcePath);
+
+            if (isAllowedRoot(source)) {
+                throw new IllegalArgumentException("cannot copy the allowed root itself");
+            }
+
+            Path target = resolvePath(request.targetPath);
+
+            if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
+                throw new IllegalArgumentException("target already exists");
+            }
+
+            if (target.startsWith(source)) {
+                throw new IllegalArgumentException("target is inside the source directory");
+            }
+
+            Files.walkFileTree(source, new SimpleFileVisitor<>() {
+                @Override
+                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
+                    if (Files.isSymbolicLink(dir)) {
+                        throw new IllegalArgumentException("symlinks are not supported: " + dir);
+                    }
+                    Path relative = source.relativize(dir);
+                    Path dest = target.resolve(relative);
+                    try {
+                        Files.createDirectory(dest);
+                    } catch (IOException e) {
+                        throw new RuntimeException("cannot create directory: " + dest, e);
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                    if (Files.isSymbolicLink(file)) {
+                        throw new IllegalArgumentException("symlinks are not supported: " + file);
+                    }
+                    Path relative = source.relativize(file);
+                    Path dest = target.resolve(relative);
+                    try {
+                        Files.copy(file, dest);
+                    } catch (IOException e) {
+                        throw new RuntimeException("cannot copy file: " + file, e);
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+            });
 
             return "copied\n";
         });
