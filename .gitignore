@@ -1,11 +1,24 @@
 target/
 .idea/
+*.iml
+.vscode/
 data/
+
+# Local overrides — dev.application.properties.sample is the tracked template
+dev.application.properties
+app.properties
+
+# Script output
+build.log
+test.log
+run.log
+
+# Browser sidecar
 browser/config.yaml
 browser/.venv/
 browser/profiles/
 browser/__pycache__/
+
+# Session handoff (both spellings — the hyphenated one is the gitignored legacy name)
 SESSION-HANDOFF.md
 SESSION_HANDOFF.md
-build.sh
-

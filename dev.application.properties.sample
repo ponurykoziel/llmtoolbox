@@ -1,0 +1,49 @@
+# Local dev overrides — copy to dev.application.properties (gitignored):
+#
+#     cp dev.application.properties.sample dev.application.properties
+#
+# This file is layered on top of src/main/resources/application.properties by
+# run.sh (via QUARKUS_CONFIG_LOCATIONS) and wins over it. Anything not set here
+# falls back to the main file — so this only has to carry what differs locally.
+#
+# Keep it to the minimum needed to boot. Every knob is documented in
+# application.properties.sample.
+
+# ── HTTP ────────────────────────────────────────────────────────────
+quarkus.http.host=127.0.0.1
+quarkus.http.port=8080
+
+# ── Hibernate DDL ───────────────────────────────────────────────────
+# IMPORTANT: src/main/resources/application.properties ships with
+# database.generation=none, so a fresh local DB gets no tables and the app
+# fails on first query. Locally you want update (keeps data across restarts).
+# Do NOT copy this line into a production config.
+quarkus.hibernate-orm.database.generation=update
+
+# ── Execution ───────────────────────────────────────────────────────
+# 30s (the built-in default) is far too short for Maven. Raise it locally.
+llmtoolbox.command.timeout-seconds=180
+
+# ── Filesystem ──────────────────────────────────────────────────────
+# Every fs tool and every build tool `path` is confined to this root.
+# Point it at whatever workspace you want the LLM to see.
+llmtoolbox.files.allowed-root=/opt/app
+
+# ── Security ────────────────────────────────────────────────────────
+# Master Bearer token for API access. Send as: Authorization: Bearer <token>
+llmtoolbox.auth.token=dev-master-key
+
+# Pepper used to hash user-created API keys. Changing it invalidates every
+# existing user key (the seeded admin user is unaffected).
+llmtoolbox.api-key.pepper=dev-pepper
+
+# Initial admin user, seeded on first boot if absent. Used by the browser UI.
+llmtoolbox.auth.admin.username=admin
+llmtoolbox.auth.admin.password=admin
+
+# ── Opt-in features: left off on purpose ────────────────────────────
+# Terminal is raw shell access. Turn it on only on a dedicated host.
+#llmtoolbox.terminal.allow=false
+
+# Browser sidecar needs a Python venv; run browser/setup.sh first.
+#llmtoolbox.browser.enabled=false

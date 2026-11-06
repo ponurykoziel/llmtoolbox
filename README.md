@@ -13,24 +13,40 @@ Windows and MacOS are neither supported nor planned to be such.
 # 1. Build
 
 ```bash
-mvn clean package
+./build.sh
 ```
-Requires Java 17 and maven. 
+Requires Java 17 and maven. Output is teed to `build.log`. Equivalent to `mvn -B clean package`.
 
-# 2. Configure 
+# 2. Configure
+
+```bash
+cp dev.application.properties.sample dev.application.properties
+```
+
+`dev.application.properties` is gitignored and layered over `src/main/resources/application.properties`
+by `run.sh`. Edit it for your local host, port, allowed filesystem root, and credentials.
+Every knob is documented in `application.properties.sample`.
+
 You *may* launch the application with default credentials. If doing so, you are obliged to understand the associated risk. Launching this application under improper risk management is not permitted. If you have launched this application by accident, shut it down immediately and send an apology email to your ISP.
-interface: `172.0.0.1`
+interface: `127.0.0.1`
 port: `8080`
 default credentials: `admin/admin`
 master API key: `change-me`
-`minimal.application.properties` file is provided to support this step. Runner script utilizes this file.
 
 # 3. Run
 ```bash
 ./run.sh
 ```
 
-In addition, `run.sh` contains comments on running the application in a screen and in a docker.
+Output is teed to `run.log`. In addition, `run.sh` contains comments on running the application in a screen
+and in a docker, and on launching with `minimal.application.properties` instead (a bare working config with
+default credentials, kept for the docker example).
+
+# Testing
+```bash
+./test.sh
+```
+Runs the full suite, teed to `test.log`. Not fast — some tool tests shell out to real binaries.
 
 # 4. Use
 The app listens on `http://127.0.0.1:8080` by default. UI is available at `/`.
