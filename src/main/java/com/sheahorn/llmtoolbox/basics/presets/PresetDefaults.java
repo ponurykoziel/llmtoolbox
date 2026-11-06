@@ -96,4 +96,9 @@ public class PresetDefaults {
     public static boolean isHardcoded(String name) {
         return HARDCODED.containsKey(name);
     }
+
+    /** True if this name is a built-in/default preset (hardcoded category or seeded composite). */
+    public static boolean isDefault(String name) {
+        return HARDCODED.containsKey(name) || SEED.containsKey(name);
+    }
 }

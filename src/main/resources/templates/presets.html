@@ -27,7 +27,13 @@
                 return;
             }
 
-            presets.sort(function(a, b) { return a.name.toLowerCase().localeCompare(b.name.toLowerCase()); });
+            // User-created presets sort above built-in/default presets, then by name
+            presets.sort(function(a, b) {
+                var aBuiltin = !!a.builtin;
+                var bBuiltin = !!b.builtin;
+                if (aBuiltin !== bBuiltin) return aBuiltin ? 1 : -1;
+                return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+            });
 
             var html = '<table><thead><tr>'
                 + '<th>Name</th><th>Prefixes</th><th></th>'
