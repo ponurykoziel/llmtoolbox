@@ -6,4 +6,5 @@ browser/.venv/
 browser/profiles/
 browser/__pycache__/
 SESSION-HANDOFF.md
+SESSION_HANDOFF.md
 build.sh
