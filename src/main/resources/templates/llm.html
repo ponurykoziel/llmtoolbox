@@ -74,7 +74,7 @@
                 <h3 id="personality-form-title">New Personality</h3>
                 <div class="stack">
                     <div class="form-group"><label>Nice Name</label><input type="text" id="pers-niceName" placeholder="e.g. helpful-assistant"></div>
-                    <div class="form-group"><label>System Prompt</label><textarea id="pers-systemPrompt" rows="4" placeholder="You are a helpful assistant..."></textarea></div>
+                    <div class="form-group"><label>System Prompt</label><div style="margin-bottom:4px;"><button type="button" class="btn btn-primary btn-small" onclick="openGenerator()">Generate instructions</button></div><textarea id="pers-systemPrompt" rows="4" placeholder="You are a helpful assistant..."></textarea></div>
                     <div class="grid grid-3" style="gap:12px;">
                         <div class="form-group"><label>Temperature (-1 = default)</label><input type="number" id="pers-temperature" step="0.01" value="-1"></div>
                         <div class="form-group"><label>Min-P</label><input type="number" id="pers-minP" step="0.01" value="-1"></div>
@@ -140,6 +140,8 @@
         </div>
         <div id="test-result" style="margin-top:16px;"></div>
     </div>
+
+    <div th:replace="~{instructionGenerator :: generator}"></div>
 
     <script>
     var currentTab = 'providers';

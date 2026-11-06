@@ -1,5 +1,6 @@
 package com.sheahorn.llmtoolbox.resource;
 
+import com.sheahorn.llmtoolbox.config.ToolsetPrefix;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
@@ -17,6 +18,9 @@ public class LlmtoolsPageResource {
 
     @Inject
     TemplateEngine templateEngine;
+
+    @Inject
+    ToolsetPrefix toolsetPrefix;
 
     @jakarta.ws.rs.core.Context
     SecurityContext securityContext;
@@ -53,6 +57,7 @@ public class LlmtoolsPageResource {
     public Response dashboard() {
         org.thymeleaf.context.Context ctx = new org.thymeleaf.context.Context();
         ctx.setVariable("isAdmin", isAdmin());
+        ctx.setVariable("toolsetPrefix", toolsetPrefix.value());
         return Response.ok(templateEngine.process("dashboard", ctx)).build();
     }
 

@@ -13,6 +13,8 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
@@ -36,6 +38,7 @@ class LlmExecutionServiceTest {
                 "llmtoolbox.auth.admin.password", "admin",
                 "llmtoolbox.api-key.pepper", "test-pepper",
                 "llmtoolbox.llm.max-tool-rounds", "3",
+                "llmtoolbox.files.allowed-root", "/",
                 "quarkus.hibernate-orm.database.generation", "drop-and-create",
                 "quarkus.datasource.jdbc.url", "jdbc:h2:mem:llmtoolbox-wiremock;DB_CLOSE_DELAY=-1"
             );
@@ -563,5 +566,82 @@ class LlmExecutionServiceTest {
             .withRequestBody(matchingJsonPath("$.stream", equalTo("false")))
             .withRequestBody(matchingJsonPath("$.options.temperature", equalTo("0.7")))
             .withRequestBody(matchingJsonPath("$.model", equalTo("llama3:8b"))));
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // Image attachment
+    // ══════════════════════════════════════════════════════════════
+
+    private String createTempImage() throws Exception {
+        Path png = Files.createTempFile("llmtoolbox-test", ".png");
+        Files.write(png, new byte[]{1, 2, 3, 4, 5});
+        return png.toString();
+    }
+
+    @Test
+    @Transactional
+    void test19_openAiChatWithImage() throws Exception {
+        Provider prov = createProvider("openai-prov", ApiType.openai, ApiMode.chat);
+        Model model = createModel("gpt-4", "gpt-4-turbo", prov.id);
+        Personality pers = createPersonality("helpful");
+        createAgent("test-agent", prov.id, model.id, pers.id, null);
+
+        stubOpenAiChat("I see the image.");
+
+        String imagePath = createTempImage();
+        LlmExecuteRequest r = req("test-agent", "Describe this image");
+        r.imagePath = imagePath;
+
+        LlmExecuteResponse resp = service.execute(r);
+
+        assertEquals("success", resp.status);
+        assertTrue(resp.payload.contains("I see the image."));
+
+        verify(postRequestedFor(urlEqualTo("/v1/chat/completions"))
+            .withRequestBody(matchingJsonPath("$.messages[0].content[0].type", equalTo("text")))
+            .withRequestBody(matchingJsonPath("$.messages[0].content[1].type", equalTo("image_url")))
+            .withRequestBody(matchingJsonPath("$.messages[0].content[1].image_url.url", containing("data:image/png;base64,"))));
+    }
+
+    @Test
+    @Transactional
+    void test20_ollamaChatWithImage() throws Exception {
+        Provider prov = createProvider("ollama-prov", ApiType.ollama, ApiMode.chat);
+        Model model = createModel("llama3", "llama3:8b", prov.id);
+        Personality pers = createPersonality("helpful");
+        createAgent("test-agent", prov.id, model.id, pers.id, null);
+
+        stubOllamaChat("I see the image.");
+
+        String imagePath = createTempImage();
+        LlmExecuteRequest r = req("test-agent", "Describe this image");
+        r.imagePath = imagePath;
+
+        LlmExecuteResponse resp = service.execute(r);
+
+        assertEquals("success", resp.status);
+        assertTrue(resp.payload.contains("I see the image."));
+
+        verify(postRequestedFor(urlEqualTo("/api/chat"))
+            .withRequestBody(matchingJsonPath("$.messages[0].content", equalTo("Describe this image")))
+            .withRequestBody(matchingJsonPath("$.images[0]", matching("^[A-Za-z0-9+/=]+$"))));
+    }
+
+    @Test
+    @Transactional
+    void test21_completionsModeRejectsImage() throws Exception {
+        Provider prov = createProvider("openai-prov", ApiType.openai, ApiMode.completions);
+        Model model = createModel("gpt-3", "gpt-3.5-turbo-instruct", prov.id);
+        Personality pers = createPersonality("helpful");
+        createAgent("test-agent", prov.id, model.id, pers.id, null);
+
+        String imagePath = createTempImage();
+        LlmExecuteRequest r = req("test-agent", "Describe this image");
+        r.imagePath = imagePath;
+
+        LlmExecuteResponse resp = service.execute(r);
+
+        assertEquals("error", resp.status);
+        assertTrue(resp.payload.contains("not supported in completions mode"));
     }
 }

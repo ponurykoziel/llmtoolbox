@@ -28,6 +28,9 @@ public class LlmExecutionService {
     @Inject
     ToolDispatcher toolDispatcher;
 
+    @Inject
+    ImageAttachmentHelper imageAttachmentHelper;
+
     @ConfigProperty(name = "llmtoolbox.llm.max-tool-rounds", defaultValue = "20")
     int maxToolRounds;
 
@@ -65,13 +68,30 @@ public class LlmExecutionService {
             return response;
         }
 
-        // 3. Completions mode — single request, no tools
+        // 3. Resolve optional image attachment
+        ImageAttachmentHelper.ImageAttachment image = null;
+        if (request.imagePath != null && !request.imagePath.isBlank()) {
+            if (provider.apiMode == ApiMode.completions) {
+                response.status = "error";
+                response.payload = "Image attachments are not supported in completions mode. Use chat mode instead.";
+                return response;
+            }
+            try {
+                image = imageAttachmentHelper.load(request.imagePath);
+            } catch (IllegalArgumentException e) {
+                response.status = "error";
+                response.payload = e.getMessage();
+                return response;
+            }
+        }
+
+        // 4. Completions mode — single request, no tools
         if (provider.apiMode == ApiMode.completions) {
             return executeCompletions(response, provider, model, personality, request.requestPrompt);
         }
 
-        // 4. Chat mode — tool loop
-        return executeChat(response, provider, model, personality, request.requestPrompt, agent.toolPreset);
+        // 5. Chat mode — tool loop
+        return executeChat(response, provider, model, personality, request.requestPrompt, agent.toolPreset, image);
     }
 
     // ── Completions mode ───────────────────────────────────────
@@ -123,20 +143,21 @@ public class LlmExecutionService {
 
     private LlmExecuteResponse executeChat(LlmExecuteResponse response,
                                             Provider provider, Model model, Personality personality,
-                                            String userPrompt, String toolPreset) {
+                                            String userPrompt, String toolPreset,
+                                            ImageAttachmentHelper.ImageAttachment image) {
         List<Map<String, Object>> tools = toolDispatcher.resolveTools(toolPreset);
 
         List<Map<String, Object>> messages = new ArrayList<>();
         if (personality.systemPrompt != null && !personality.systemPrompt.isBlank()) {
             messages.add(Map.of("role", "system", "content", personality.systemPrompt));
         }
-        messages.add(Map.of("role", "user", "content", userPrompt));
+        messages.add(buildUserMessage(provider, userPrompt, image));
 
         StringBuilder output = new StringBuilder();
 
         try {
             for (int round = 0; round < maxToolRounds; round++) {
-                String llmResponseBody = callChat(provider, model, personality, messages, tools);
+                String llmResponseBody = callChat(provider, model, personality, messages, tools, image);
 
                 JsonNode llmJson;
                 try {
@@ -209,9 +230,10 @@ public class LlmExecutionService {
 
     private String callChat(Provider provider, Model model, Personality personality,
                             List<Map<String, Object>> messages,
-                            List<Map<String, Object>> tools) throws Exception {
+                            List<Map<String, Object>> tools,
+                            ImageAttachmentHelper.ImageAttachment image) throws Exception {
         if (provider.apiType == ApiType.ollama) {
-            return callOllamaChat(provider, model, personality, messages, tools);
+            return callOllamaChat(provider, model, personality, messages, tools, image);
         } else if (provider.apiType == ApiType.openwebui) {
             return callOpenWebuiChat(provider, model, personality, messages, tools);
         } else {
@@ -256,13 +278,18 @@ public class LlmExecutionService {
 
     private String callOllamaChat(Provider provider, Model model, Personality personality,
                                   List<Map<String, Object>> messages,
-                                  List<Map<String, Object>> tools) throws Exception {
+                                  List<Map<String, Object>> tools,
+                                  ImageAttachmentHelper.ImageAttachment image) throws Exception {
         ObjectNode body = MAPPER.createObjectNode();
         body.put("model", model.providerName);
         body.set("messages", MAPPER.valueToTree(messages));
         body.put("stream", false);
         if (tools != null && !tools.isEmpty()) {
             body.set("tools", MAPPER.valueToTree(tools));
+        }
+        if (image != null) {
+            ArrayNode images = body.putArray("images");
+            images.add(image.base64);
         }
 
         ObjectNode options = MAPPER.createObjectNode();
@@ -310,6 +337,30 @@ public class LlmExecutionService {
 
         String url = stripTrailingSlash(provider.baseUrl) + "/api/completions";
         return postJson(url, provider.apiKey, body);
+    }
+
+    // ── User message construction ──────────────────────────────
+
+    /**
+     * Builds the user message content. For OpenAI/OpenWebUI providers the
+     * content becomes a multimodal array of parts (text + image_url). For
+     * Ollama the content stays a plain text string — the image is attached
+     * separately as a top-level {@code images} array in {@link #callOllamaChat}.
+     */
+    private Map<String, Object> buildUserMessage(Provider provider, String userPrompt,
+                                                 ImageAttachmentHelper.ImageAttachment image) {
+        if (image == null || provider.apiType == ApiType.ollama) {
+            return Map.of("role", "user", "content", userPrompt);
+        }
+
+        List<Map<String, Object>> parts = new ArrayList<>();
+        parts.add(Map.of("type", "text", "text", userPrompt));
+        parts.add(Map.of(
+            "type", "image_url",
+            "image_url", Map.of("url", image.dataUrl())
+        ));
+
+        return Map.of("role", "user", "content", parts);
     }
 
     // ── HTTP helper ─────────────────────────────────────────────

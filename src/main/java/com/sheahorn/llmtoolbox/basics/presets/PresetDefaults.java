@@ -29,7 +29,8 @@ public class PresetDefaults {
             Map.entry("terminal", "terminal_*"),
             Map.entry("calculator", "calculator_*"),
             Map.entry("git", "devops_git_*"),
-            Map.entry("docker", "devops_docker_*")
+            Map.entry("docker", "devops_docker_*"),
+            Map.entry("binpeek", "binpeek_*")
     );
 
     /** Composite presets — seeded into DB on first boot. */

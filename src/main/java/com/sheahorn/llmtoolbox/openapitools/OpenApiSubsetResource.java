@@ -15,7 +15,10 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import com.sheahorn.llmtoolbox.auth.NoBearerAuth;
 import com.sheahorn.llmtoolbox.basics.presets.PresetDefaults;
+import com.sheahorn.llmtoolbox.config.ToolsetPrefix;
 import com.sheahorn.llmtoolbox.custom.CustomFunction;
+
+import jakarta.inject.Inject;
 
 @Path("/api/openapi")
 @Produces(MediaType.APPLICATION_JSON)
@@ -23,7 +26,10 @@ import com.sheahorn.llmtoolbox.custom.CustomFunction;
 public class OpenApiSubsetResource {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
-    private volatile JsonNode cachedFull;
+    private volatile JsonNode rawSpec;
+
+    @Inject
+    ToolsetPrefix toolsetPrefix;
     private static final String[] OPENAPI_FILES = {
         "/META-INF/openapi.yaml",
         "/META-INF/openapi.yml",
@@ -38,7 +44,7 @@ public class OpenApiSubsetResource {
         if (selectors == null || selectors.isBlank()) {
             return error("selectors path param is required (comma-separated). Use abc_* for prefix, abc_def for exact.");
         }
-        JsonNode full = resolveOpenApi();
+        JsonNode full = resolveOpenApiWithCustomFunctions();
         if (full == null) {
             return error("OpenAPI document not available");
         }
@@ -72,7 +78,7 @@ public class OpenApiSubsetResource {
             return error("Unknown preset: " + name + ". Available: " + available);
         }
 
-        JsonNode full = resolveOpenApi();
+        JsonNode full = resolveOpenApiWithCustomFunctions();
         if (full == null) {
             return error("OpenAPI document not available");
         }
@@ -154,22 +160,34 @@ public class OpenApiSubsetResource {
     }
 
     private JsonNode resolveOpenApi() {
-        if (cachedFull != null) return cachedFull;
+        if (rawSpec != null) return rawSpec;
         synchronized (this) {
-            if (cachedFull != null) return cachedFull;
+            if (rawSpec != null) return rawSpec;
             for (String file : OPENAPI_FILES) {
                 try (InputStream is = getClass().getResourceAsStream(file)) {
                     if (is == null) continue;
                     String raw = new String(is.readAllBytes(), StandardCharsets.UTF_8);
-                    cachedFull = MAPPER.readTree(raw);
-                    injectCustomFunctions((ObjectNode) cachedFull);
-                    return cachedFull;
+                    rawSpec = MAPPER.readTree(raw);
+                    return rawSpec;
                 } catch (Exception e) {
                     // try next
                 }
             }
             return null;
         }
+    }
+
+    /**
+     * Returns a fresh deep copy of the raw OpenAPI spec with custom functions
+     * injected. Custom functions are re-read from the DB on every call so the
+     * subset always reflects the current set.
+     */
+    private JsonNode resolveOpenApiWithCustomFunctions() {
+        JsonNode raw = resolveOpenApi();
+        if (raw == null) return null;
+        ObjectNode full = raw.deepCopy();
+        injectCustomFunctions(full);
+        return full;
     }
 
     /**
@@ -268,7 +286,7 @@ public class OpenApiSubsetResource {
         return ops;
     }
 
-    /** Keep only operations whose operationId is in the selected set. */
+    /** Keep only operations whose operationId is in the selected set, prefixing operationIds. */
     private JsonNode slimPathItem(JsonNode pi, Set<String> selectedOpIds) {
         ObjectNode slim = MAPPER.createObjectNode();
         boolean any = false;
@@ -278,7 +296,9 @@ public class OpenApiSubsetResource {
             if (op != null && !op.isNull()) {
                 JsonNode opId = op.get("operationId");
                 if (opId != null && selectedOpIds.contains(opId.asText())) {
-                    slim.set(m, op.deepCopy());
+                    ObjectNode copy = op.deepCopy();
+                    copy.put("operationId", toolsetPrefix.apply(opId.asText()));
+                    slim.set(m, copy);
                     any = true;
                 }
             }
