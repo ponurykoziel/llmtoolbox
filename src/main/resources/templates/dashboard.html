@@ -166,6 +166,29 @@
         };
     }
 
+    async function clearLocks(family) {
+        var label = family ? family + ' lock' : 'all build locks';
+        if (!confirm('Force-release ' + label + '?')) return;
+        try {
+            var res = await fetch('/ui/locks/clear', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: family ? JSON.stringify({family: family}) : '{}'
+            });
+            var data = {};
+            try { data = await res.json(); } catch (e) { data = {}; }
+            if (!res.ok) {
+                alert('Clear failed: ' + (data.error || res.status));
+            } else if (data.stillHeld && data.stillHeld.length) {
+                alert('Flag cleared for: ' + (data.cleared.join(', ') || 'nothing')
+                    + '\nStill inside a call (monitor held): ' + data.stillHeld.join(', '));
+            }
+            refresh();
+        } catch (e) {
+            alert('Clear failed: ' + e);
+        }
+    }
+
     async function refresh() {
         try {
             var [presetsRes, builtinRes, customRes, locksRes, featuresRes, providersRes, personalitiesRes, modelsRes, agentsRes] = await Promise.all([
@@ -249,26 +272,47 @@
             document.getElementById('llm-calling').innerHTML = llmHtml;
 
             // ── locks ──────────────────────────────────────────
-            var lockNames = ['mvn', 'git', 'docker'];
-            var modePill = lockMode === 'reject' ? 'pill-high' : 'pill-normal';
-            var locksHtml = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">'
+            var locksEnabled = locksData.enabled !== false;
+            var lockNames = ['mvn', 'gradle', 'git', 'docker', 'cargo'];
+            var anyLocked = false;
+            for (var li = 0; li < lockNames.length; li++) {
+                var liInfo = locks[lockNames[li]];
+                if (liInfo && liInfo.locked) { anyLocked = true; }
+            }
+
+            var modePill = !locksEnabled ? 'pill-todo' : (lockMode === 'reject' ? 'pill-high' : 'pill-normal');
+            var locksHtml = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px;">'
                 + '<span class="muted small">Mode</span>'
-                + '<span class="pill ' + modePill + '">' + esc(lockMode) + '</span>'
-                + '</div>'
-                + '<div class="grid grid-3" style="gap:12px;">';
-            for (var i = 0; i < lockNames.length; i++) {
-                var name = lockNames[i];
-                var info = locks[name] || {locked: false, since: null, operation: null};
-                locksHtml += '<div style="background:var(--panel-2);border-radius:8px;padding:12px 14px;text-align:center;">'
-                    + '<div style="font-size:24px;margin-bottom:4px;">' + lockIcon(info.locked) + '</div>'
-                    + '<div style="font-weight:700;font-size:15px;text-transform:uppercase;">' + esc(name) + '</div>'
-                    + '<div><span class="pill ' + lockPill(info.locked) + '" style="margin-top:6px;">' + lockLabel(info.locked) + '</span></div>';
-                if (info.locked && info.since) {
-                    locksHtml += '<div class="muted small" style="margin-top:4px;">' + esc(ago(info.since)) + '</div>';
+                + '<span style="display:flex;align-items:center;gap:8px;">'
+                + (anyLocked ? '<button class="btn-small" onclick="clearLocks(null)">Clear all</button>' : '')
+                + '<span class="pill ' + modePill + '">' + esc(locksEnabled ? lockMode : 'disabled') + '</span>'
+                + '</span>'
+                + '</div>';
+
+            if (!locksEnabled) {
+                locksHtml += '<div class="muted small">Build locks are <strong>off</strong> '
+                    + '(<code>llmtoolbox.build.locks.enabled=false</code>). Concurrent mvn/gradle/git/docker/cargo '
+                    + 'calls run in parallel and never report busy.</div>';
+            } else {
+                locksHtml += '<div class="grid grid-3" style="gap:12px;">';
+                for (var i = 0; i < lockNames.length; i++) {
+                    var name = lockNames[i];
+                    var info = locks[name] || {locked: false, since: null, operation: null, heldByWorker: false};
+                    locksHtml += '<div style="background:var(--panel-2);border-radius:8px;padding:12px 14px;text-align:center;">'
+                        + '<div style="font-size:24px;margin-bottom:4px;">' + lockIcon(info.locked) + '</div>'
+                        + '<div style="font-weight:700;font-size:15px;text-transform:uppercase;">' + esc(name) + '</div>'
+                        + '<div><span class="pill ' + lockPill(info.locked) + '" style="margin-top:6px;">' + lockLabel(info.locked) + '</span></div>';
+                    if (info.locked) {
+                        locksHtml += '<div class="muted small" style="margin-top:4px;">'
+                            + (info.since ? esc(ago(info.since)) + ' &middot; ' : '')
+                            + (info.heldByWorker ? 'running' : 'stale')
+                            + '</div>'
+                            + '<div style="margin-top:6px;"><button class="btn-small" onclick="clearLocks(\'' + esc(name) + '\')">Clear</button></div>';
+                    }
+                    locksHtml += '</div>';
                 }
                 locksHtml += '</div>';
             }
-            locksHtml += '</div>';
             document.getElementById('locks-status').innerHTML = locksHtml;
 
             // ── in-flight ──────────────────────────────────────

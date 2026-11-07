@@ -48,6 +48,8 @@ public class LockStatusResource {
     @GET
     public Map<String, Object> status() {
         Map<String, Object> result = new LinkedHashMap<>();
+        // One switch, one mode for every family — reported once, not per lock.
+        result.put("enabled", mvnLock.isEnabled());
         result.put("mode", mvnLock.getMode());
         result.put("locks", locks());
         result.put("inFlight", inFlightService.getAll().values());
@@ -57,35 +59,31 @@ public class LockStatusResource {
 
     private Map<String, LockInfo> locks() {
         Map<String, LockInfo> result = new LinkedHashMap<>();
-        result.put("mvn", toInfo(mvnLock));
-        result.put("gradle", toInfo(gradleLock));
-        result.put("git", toInfo(gitLock));
-        result.put("docker", toInfo(dockerLock));
-        result.put("cargo", toInfo(cargoLock));
+        result.put("mvn", new LockInfo(mvnLock));
+        result.put("gradle", new LockInfo(gradleLock));
+        result.put("git", new LockInfo(gitLock));
+        result.put("docker", new LockInfo(dockerLock));
+        result.put("cargo", new LockInfo(cargoLock));
         return result;
     }
 
-    private LockInfo toInfo(Object lock) {
-        try {
-            boolean locked = (boolean) lock.getClass().getMethod("isLocked").invoke(lock);
-            Instant since = (Instant) lock.getClass().getMethod("getSince").invoke(lock);
-            String op = (String) lock.getClass().getMethod("getOperation").invoke(lock);
-            return new LockInfo(locked, since, op);
-        } catch (Exception e) {
-            return new LockInfo(false, null, null);
-        }
-    }
-
     public static class LockInfo {
+        public String family;
         public boolean locked;
         public Instant since;
         public String operation;
+        /** True while a worker is really inside the call — a locked flag without this is stale. */
+        public boolean heldByWorker;
 
-        public LockInfo() {}
-        public LockInfo(boolean locked, Instant since, String operation) {
-            this.locked = locked;
-            this.since = since;
-            this.operation = operation;
+        public LockInfo() {
+        }
+
+        public LockInfo(AbstractFamilyLockService lock) {
+            this.family = lock.getFamily();
+            this.locked = lock.isLocked();
+            this.since = lock.getSince();
+            this.operation = lock.getOperation();
+            this.heldByWorker = lock.isHeldByWorker();
         }
     }
 }

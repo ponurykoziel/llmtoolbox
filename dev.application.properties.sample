@@ -24,6 +24,14 @@ quarkus.hibernate-orm.database.generation=update
 # 30s (the built-in default) is far too short for Maven. Raise it locally.
 llmtoolbox.command.timeout-seconds=180
 
+# ── Build locks ─────────────────────────────────────────────────────
+# One global lock per family (mvn/gradle/git/docker/cargo). Leave the
+# default alone unless you are debugging the locks themselves: the
+# dashboard has a Clear button for a stuck lock, and setting
+# llmtoolbox.build.locks.enabled=false makes every family a pass-through.
+#llmtoolbox.build.lock-mode=synchronize
+#llmtoolbox.build.locks.enabled=true
+
 # ── Filesystem ──────────────────────────────────────────────────────
 # Every fs tool and every build tool `path` is confined to this root.
 # Point it at whatever workspace you want the LLM to see.

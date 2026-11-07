@@ -27,9 +27,30 @@
 # ── Execution ──────────────────────────────────────────────────────
 
 # Maximum wall-clock time (seconds) for any shell command spawned by
-# tools (mvn, ping, dig, curl, etc.). The process is killed if it
+# tools (mvn, ping, dig, curl, etc.). The process tree is killed if it
 # exceeds this. Maven builds may need 180+.
+# The tool always returns — worst case is timeout + a few seconds.
 #llmtoolbox.command.timeout-seconds=30
+
+# Maximum bytes captured per stream (stdout and stderr) for one command.
+# Only the TAIL is kept: build errors live at the end of the log. The
+# response carries truncated=true and outputBytes (the real total) so a
+# caller can tell the tail from the whole output. 0 = unbounded (will
+# happily OOM the heap on a chatty command).
+#llmtoolbox.command.max-output-bytes=1048576
+
+# ── Build locks ────────────────────────────────────────────────────
+
+# One global lock per build-tool family: mvn, gradle, git, docker, cargo.
+# synchronize (default): concurrent calls queue up and run one after another.
+# reject: the second call fails fast with "mvn is busy — lock held since ...".
+#llmtoolbox.build.lock-mode=synchronize
+
+# One switch for all five families. Set to false to disable build locking
+# entirely: calls become pass-through, run in parallel, and never report
+# busy. Useful on a single-user box, or to un-stick a lock without a
+# restart. The dashboard shows a "locks disabled" state.
+#llmtoolbox.build.locks.enabled=true
 
 # Enable the /api/tools/terminal/execute endpoint — raw, unrestricted
 # shell access for the LLM. If the JVM runs as a user with NOPASSWD
