@@ -13,6 +13,16 @@
 quarkus.http.host=127.0.0.1
 quarkus.http.port=8080
 
+# Path prefix for the whole app and its REST endpoints. "/" = served at the
+# root. Set to "/llmtoolbox" only if you put it behind a path-rewriting proxy,
+# and note that redirects (form login, logout) pick this up too.
+quarkus.http.root-path=/
+
+# Trust X-Forwarded-* headers for scheme/host/port. FALSE on bare metal — a
+# client could otherwise spoof its own address and scheme. TRUE only when the
+# app sits behind nginx/traefik on the same host (TLS terminates there, ADR 0012).
+quarkus.http.proxy.proxy-address-forwarding=false
+
 # ── Hibernate DDL ───────────────────────────────────────────────────
 # IMPORTANT: src/main/resources/application.properties ships with
 # database.generation=none, so a fresh local DB gets no tables and the app
@@ -24,11 +34,20 @@ quarkus.hibernate-orm.database.generation=update
 # 30s (the built-in default) is far too short for Maven. Raise it locally.
 llmtoolbox.command.timeout-seconds=180
 
+# Per-stream output cap. The TAIL is kept, the response says truncated=true.
+# 1 MB is fine for most builds; lower it if a chatty `mvn` is drowning the
+# conversation, 0 = unbounded (will happily eat your heap).
+#llmtoolbox.command.max-output-bytes=1048576
+
 # ── Build locks ─────────────────────────────────────────────────────
-# One global lock per family (mvn/gradle/git/docker/cargo). Leave the
-# default alone unless you are debugging the locks themselves: the
-# dashboard has a Clear button for a stuck lock, and setting
-# llmtoolbox.build.locks.enabled=false makes every family a pass-through.
+# One global lock per family (mvn/gradle/git/docker/cargo), on by default.
+# Leave the defaults alone unless you are debugging the locks themselves:
+# - the dashboard has a Clear button for a stuck lock;
+# - lock-mode=reject makes a second concurrent call fail fast instead of
+#   queueing, which is handy when you want to see contention;
+# - locks.enabled=false turns all five into pass-throughs (no exclusion,
+#   never "busy") — fine for a single-user box, and the honest way to test
+#   parallel builds, but it lets two Maven runs fight over ~/.m2.
 #llmtoolbox.build.lock-mode=synchronize
 #llmtoolbox.build.locks.enabled=true
 
@@ -36,6 +55,38 @@ llmtoolbox.command.timeout-seconds=180
 # Every fs tool and every build tool `path` is confined to this root.
 # Point it at whatever workspace you want the LLM to see.
 llmtoolbox.files.allowed-root=/opt/app
+
+# Read/pack limits. Defaults are sane; raise max-read-bytes when you actually
+# want the LLM to chew through a big file. max-pack-* bound pack-folder.
+#llmtoolbox.files.max-read-bytes=1048576
+#llmtoolbox.files.max-pack-total-bytes=2097152
+#llmtoolbox.files.max-pack-file-bytes=262144
+#llmtoolbox.files.max-pack-files=200
+
+# ── Toolset surface ─────────────────────────────────────────────────
+# Debugging the OpenAPI subset? A prefix makes the transformed operationIds
+# obvious in the spec (`acme_build_mvn_compile`). [A-Za-z0-9_]+ only; anything
+# else is logged and silently ignored. Also shown on the dashboard.
+#llmtoolbox.global.function.prefix=
+
+# ── LLM calling ────────────────────────────────────────────────────
+# How many tool-call round trips an agent may make before the loop is cut off.
+# Lower it (2-3) when debugging tool dispatch; raise it for deep agentic runs.
+#llmtoolbox.llm.max-tool-rounds=20
+
+# ── Network ─────────────────────────────────────────────────────────
+# false (default) lets curl reach localhost and private ranges — what you want
+# while developing against a local service. Flip to true to model production.
+#llmtoolbox.net.curl.block-private-ips=false
+
+# ── Calculator ──────────────────────────────────────────────────────
+# Decimal places for rounding results. -1 disables rounding entirely.
+#llmtoolbox.calculator.rounding-digits=8
+
+# ── Communication (Telegram) ────────────────────────────────────────
+# Bot token + chat id. Leave both unset to keep Telegram disabled.
+#llmtoolbox.communication.telegram.token=0
+#llmtoolbox.communication.telegram.chatid=0
 
 # ── Security ────────────────────────────────────────────────────────
 # Master Bearer token for API access. Send as: Authorization: Bearer <token>
@@ -49,9 +100,23 @@ llmtoolbox.api-key.pepper=dev-pepper
 llmtoolbox.auth.admin.username=admin
 llmtoolbox.auth.admin.password=admin
 
+# Set false to boot with no users at all (integration tests do this). Handy
+# when you are poking at the JDBC realm and want a clean slate — but with an
+# in-memory H2 (ADR 0009) and no admin user, you cannot log into the UI.
+#llmtoolbox.auth.seed-on-startup=true
+
 # ── Opt-in features: left off on purpose ────────────────────────────
 # Terminal is raw shell access. Turn it on only on a dedicated host.
 #llmtoolbox.terminal.allow=false
 
-# Browser sidecar needs a Python venv; run browser/setup.sh first.
+# Browser sidecar needs a Python venv; run browser/setup.sh first, or use the
+# "Initialize venv" button on the dashboard. The sidecar binds 127.0.0.1 and
+# requires a token — it comes from llmtoolbox.browser.token and must match
+# browser/config.yaml. Enabling the browser without setting the token leaves
+# the two sides disagreeing, so set it in the same go.
 #llmtoolbox.browser.enabled=false
+#llmtoolbox.browser.port=9020
+#llmtoolbox.browser.token=
+# Directory holding server.py / run.sh / setup.sh, resolved against the
+# process CWD (so a local `./run.sh` from the repo root works with the default).
+#llmtoolbox.browser.python.path=browser
